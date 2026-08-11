@@ -1,42 +1,21 @@
-# Jolt Time — MVP Game Design
+# Jolt Time — Ancient Egypt Vertical Slice
 
-## Core loop
+## Identity and loop
 
-The Keeper taps the Time Core for Time Shards, coins, and XP. XP raises the Keeper level and opens epochs. Coins buy infrastructure upgrades. Taps and expeditions uncover artifact fragments; completed artifacts permanently improve production and museum completion. Passive production makes every return valuable.
+The Keeper of Time investigates the **Temporal Fracture**, a deliberate corruption of human history. The playable loop is story → map → team → battle → reward → hero growth → artifact → museum → next mission. The Time Core remains the Archive's portal, not a repeated-tap economy.
 
-## Economy and currencies
+## Chapter structure
 
-- **Time Shards** are the primary score and tap/passive resource. Each tap grants current tap power.
-- **Coins** fund upgrades. A tap grants one coin and expeditions grant 75.
-- **XP** advances player level. Taps grant 4 XP; the next level costs `level × 100` XP.
+Ancient Egypt contains six route nodes from the Time Portal to the Great Pyramid. Battles include elimination and survive-turn objectives, an elite route, discoveries, story interludes, and the phase-changing Echo of Apophis boss. The recurring unknown symbol establishes a twelve-epoch mystery without revealing its architect.
 
-There is no premium currency, monetization, trading, or server economy.
+## Combat
 
-## Epochs and artifacts
+Up to four heroes act in speed order. Basic attacks build energy; skills and ultimates spend it. Defense reduces damage, critical hits multiply it, and status architecture supports stun, burn, bleed, weakness, shields, and time slow. The boss changes its AI below half health and begins using Broken Eclipse.
 
-Egypt is available at level 1; Greece, Rome, Vikings, and Japan unlock at levels 5, 10, 15, and 20. Each has five artifacts—one in every rarity from Common through Mythic. An artifact needs 3, 5, 7, 9, or 11 fragments based on rarity. Random discoveries target an incomplete artifact in an unlocked epoch. Completion adds a permanent tap or passive-production bonus and raises total museum progress.
+## Progression and museum
 
-## Upgrades
+Missions grant hero XP, upgrade materials, Time resource, and deterministic artifact fragments. Completed artifacts can be equipped for combat stats and contribute permanent museum bonuses. Heroes are story operatives—not randomized or monetized acquisitions.
 
-- **Stronger Tap** adds tap power.
-- **Time Engine** adds one shard per second and offline-production rate per level.
-- **Archaeologist Tools** adds 1.5 percentage points to fragment discovery chance per level.
-- **Museum Wing** records an extensible museum bonus for future prestige rewards.
+## Future epochs
 
-Upgrade prices use `base cost × multiplier^level`, producing a controlled exponential sink.
-
-## Expeditions
-
-One expedition can run at a time in any unlocked epoch. It lasts 30 seconds and persists absolute start/end timestamps, so closing the process cannot pause it. Claiming yields 75 coins, 30 XP, and a fragment from the selected civilization.
-
-## Daily chronology
-
-The seven-day local cycle grants increasing shards, coins, and XP. Days four and seven also provide a fragment. An ISO local date is persisted to prevent a second claim on the same calendar day.
-
-## Offline income
-
-On restoration, elapsed wall-clock seconds are multiplied by current passive income. Elapsed time is clamped to six hours (21,600 seconds). A modal reports the collected amount. The latest background timestamp is persisted when the activity stops.
-
-## Future roadmap
-
-Potential post-MVP work includes balanced museum prestige, richer expedition choices, duplicate-fragment conversion, achievements, accessible sound assets, animated artifact reveals, more curated epochs, optional cloud backup, deterministic daily streak validation, and Play Store release signing. These are deliberately excluded until retention and economy data validate the complete offline MVP.
+The content model is designed for twelve epochs, but only Egypt is authored now. Future content can add maps, missions, rosters, enemy templates, scenes, and collections while reusing campaign, battle, story, and persistence systems.

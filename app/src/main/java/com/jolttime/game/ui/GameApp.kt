@@ -1,168 +1,120 @@
 package com.jolttime.game.ui
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jolttime.game.R
 import com.jolttime.game.domain.model.*
-import com.jolttime.game.game.GameEngine
 import com.jolttime.game.ui.theme.*
 import kotlinx.coroutines.delay
 
-private enum class Tab(val title:String){ HOME("Home"),UPGRADES("Upgrades"),MUSEUM("Museum"),EPOCHS("Epochs"),EXPEDITIONS("Expeditions"),SETTINGS("Settings") }
+private enum class Screen(val label:Int,val icon:ImageVector){ ARCHIVE(R.string.nav_archive,Icons.Outlined.AccountBalance),MAP(R.string.nav_map,Icons.Outlined.Map),HEROES(R.string.nav_heroes,Icons.Outlined.Groups),MUSEUM(R.string.nav_museum,Icons.Outlined.Museum) }
 
-@Composable
-fun GameApp(vm: GameViewModel) {
+@Composable fun GameApp(vm:GameViewModel){
     JoltTheme {
         val ui by vm.ui.collectAsStateWithLifecycle()
-        var tab by remember { mutableStateOf(Tab.HOME) }
-        var daily by remember { mutableStateOf(false) }
-
-        if (!ui.loaded) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            Scaffold(
-                bottomBar = {
-                    NavigationBar(containerColor = Color(0xFF0E1117)) {
-                        Tab.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = tab == item,
-                                onClick = { tab = item },
-                                icon = {
-                                    Icon(
-                                        imageVector = when (item) {
-                                            Tab.HOME -> Icons.Outlined.Bolt
-                                            Tab.UPGRADES -> Icons.Outlined.TrendingUp
-                                            Tab.MUSEUM -> Icons.Outlined.AccountBalance
-                                            Tab.EPOCHS -> Icons.Outlined.Public
-                                            Tab.EXPEDITIONS -> Icons.Outlined.Explore
-                                            Tab.SETTINGS -> Icons.Outlined.Settings
-                                        },
-                                        contentDescription = item.title
-                                    )
-                                },
-                                label = { Text(item.title.take(5), fontSize = 9.sp) }
-                            )
-                        }
-                    }
-                }
-            ) { padding ->
-                Box(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-                ) {
-                    when (tab) {
-                        Tab.HOME -> Home(ui.game, vm::tap, daily = { daily = true })
-                        Tab.UPGRADES -> Upgrades(ui.game, vm::buy)
-                        Tab.MUSEUM -> Museum(ui.game)
-                        Tab.EPOCHS -> Epochs(ui.game)
-                        Tab.EXPEDITIONS -> Expeditions(
-                            ui.game,
-                            vm::startExpedition,
-                            vm::claimExpedition
-                        )
-                        Tab.SETTINGS -> Settings(ui.game, vm)
-                    }
-                }
-            }
-
-            if (daily) {
-                DailyDialog(
-                    g = ui.game,
-                    close = { daily = false },
-                    claim = {
-                        vm.claimDaily()
-                        daily = false
-                    }
-                )
-            }
-
-            if (ui.offlineReward > 0) {
-                AlertDialog(
-                    onDismissRequest = vm::dismissOffline,
-                    icon = { Icon(Icons.Outlined.NightsStay, contentDescription = null) },
-                    title = { Text("Welcome back, Keeper") },
-                    text = {
-                        Text(
-                            "Your Time Engine recovered ${ui.offlineReward} shards " +
-                                "while you were away."
-                        )
-                    },
-                    confirmButton = {
-                        Button(onClick = vm::dismissOffline) {
-                            Text("Collect")
-                        }
-                    }
-                )
-            }
-
-            if (ui.showLevelUp) {
-                AlertDialog(
-                    onDismissRequest = vm::dismissLevel,
-                    title = { Text("Timeline expanded") },
-                    text = {
-                        Text(
-                            "You reached level ${ui.game.level}. " +
-                                "New history may now be within reach."
-                        )
-                    },
-                    confirmButton = {
-                        Button(onClick = vm::dismissLevel) {
-                            Text("Continue")
-                        }
-                    }
-                )
-            }
+        var screen by remember { mutableStateOf(Screen.ARCHIVE) }
+        if(!ui.loaded) Box(Modifier.fillMaxSize(), contentAlignment=Alignment.Center){CircularProgressIndicator()}
+        else if(!ui.game.storyIntroSeen) StoryOverlay(GameContent.stories.getValue("intro"),vm::introSeen)
+        else if(ui.game.activeBattle!=null) BattleScreen(ui.game,vm)
+        else Row(Modifier.fillMaxSize().background(Ink)) {
+            NavigationRail(containerColor=Color(0xFF0D1015)) { Spacer(Modifier.weight(1f));Screen.entries.forEach{NavigationRailItem(selected=screen==it,onClick={screen=it},icon={Icon(it.icon,null)},label={Text(stringResource(it.label),fontSize=10.sp)})};Spacer(Modifier.weight(1f)) }
+            Box(Modifier.weight(1f).fillMaxHeight()){when(screen){Screen.ARCHIVE->ArchiveScreen(ui.game,{screen=Screen.MAP},{screen=Screen.HEROES});Screen.MAP->MapScreen(ui.game,vm);Screen.HEROES->HeroesScreen(ui.game,vm);Screen.MUSEUM->MuseumScreen(ui.game,vm)}}
+        }
+        val pendingStory = ui.game.pendingStoryId
+        val pendingArtifact = ui.game.pendingArtifactId
+        when {
+            pendingStory != null -> StoryOverlay(GameContent.stories.getValue(pendingStory), vm::dismissStory)
+            pendingArtifact != null -> ArtifactReveal(ui.game.artifacts.first { it.id == pendingArtifact }, vm::dismissArtifact)
+            ui.game.chapterComplete -> ChapterComplete()
         }
     }
 }
 
-@Composable private fun Header(kicker:String,title:String,body:String=""){Column(Modifier.padding(horizontal=20.dp,vertical=18.dp)){Text(kicker.uppercase(),color=Gold,fontSize=11.sp,fontWeight=FontWeight.Bold);Text(title,fontSize=28.sp,fontWeight=FontWeight.Bold);if(body.isNotEmpty())Text(body,color=Muted,fontSize=14.sp)}}
-@Composable
-private fun Glass(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) = Column(
-    modifier = modifier
-        .background(Card, RoundedCornerShape(20.dp))
-        .border(1.dp, Color(0xFF282E38), RoundedCornerShape(20.dp))
-        .padding(16.dp),
-    content = content
-)
-@Composable private fun Home(g:GameState,tap:()->Unit,daily:()->Unit){val haptic=LocalHapticFeedback.current;var pressed by remember{mutableStateOf(false)};var float by remember{mutableIntStateOf(0)};val scale by animateFloatAsState(if(pressed).92f else 1f,label="core")
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Box(Modifier.weight(1f)){Header("Keeper level ${g.level}","The Time Core")};IconButton(onClick=daily){Icon(Icons.Outlined.CardGiftcard,"Daily reward",tint=Gold)}}
-        Column(Modifier.padding(horizontal=20.dp)){Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Stat("TIME SHARDS",g.timeShards.toString(),Modifier.weight(1f));Stat("COINS",g.coins.toString(),Modifier.weight(1f))};Spacer(Modifier.height(14.dp));Text("XP  ${g.xp} / ${g.xpToNextLevel}",fontSize=12.sp,color=Muted);LinearProgressIndicator(progress={(g.xp/g.xpToNextLevel.toFloat()).coerceIn(0f,1f)},Modifier.fillMaxWidth().padding(top=7.dp).height(7.dp).clip(CircleShape))
-            Box(Modifier.fillMaxWidth().height(330.dp),contentAlignment=Alignment.Center){Box(Modifier.size(238.dp).scale(scale).background(Brush.radialGradient(listOf(Color(0xFF39475B),Color(0xFF171D27),Color(0xFF0C0F14))),CircleShape).border(1.dp,Gold.copy(.55f),CircleShape).clickable{pressed=true;float++;tap();if(g.vibrationEnabled)haptic.performHapticFeedback(HapticFeedbackType.LongPress)},contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Icon(Icons.Outlined.HourglassTop,null,tint=Gold,modifier=Modifier.size(50.dp));Text("RESTORE",fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text("+${g.tapPower} shards",color=Muted,fontSize=12.sp)}};LaunchedEffect(pressed){if(pressed){delay(100);pressed=false}};AnimatedContent(float,label="float"){if(it>0)Text("+${g.tapPower}",color=Gold,fontWeight=FontWeight.Bold,modifier=Modifier.offset(y=(-135).dp))}}
-            Glass(Modifier.fillMaxWidth()){Text("TIME ENGINE",fontSize=11.sp,color=Muted);Text("${g.passiveIncomePerSecond} shards / second",fontSize=18.sp,fontWeight=FontWeight.SemiBold);Text("Offline recovery is capped at 6 hours.",color=Muted,fontSize=12.sp)}}}}
-@Composable private fun Stat(label:String,value:String,modifier:Modifier){Glass(modifier){Text(label,fontSize=10.sp,color=Muted);Text(value,fontSize=22.sp,fontWeight=FontWeight.Bold)}}
+@Composable private fun ArchiveScreen(g:GameState,map:()->Unit,heroes:()->Unit){
+    Row(Modifier.fillMaxSize().padding(24.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)){
+        Column(Modifier.weight(1.2f).fillMaxHeight(),verticalArrangement=Arrangement.SpaceBetween){
+            Column{Kicker(stringResource(R.string.archive_kicker));Text(stringResource(R.string.archive_title),fontSize=30.sp,fontWeight=FontWeight.Bold);Text(stringResource(R.string.archive_body),color=Muted,modifier=Modifier.padding(top=8.dp))}
+            Box(Modifier.fillMaxWidth().height(150.dp).background(Color(0xFF121720),RoundedCornerShape(24.dp)).border(1.dp,Gold.copy(.35f),RoundedCornerShape(24.dp)),contentAlignment=Alignment.Center){Canvas(Modifier.size(110.dp)){drawCircle(Gold.copy(.16f));drawCircle(Gold,style=androidx.compose.ui.graphics.drawscope.Stroke(3f));drawLine(Gold,center,Offset(center.x,size.height*.12f),4f,StrokeCap.Round);drawLine(Gold,center,Offset(size.width*.72f,size.height*.62f),4f,StrokeCap.Round)};Text(stringResource(R.string.time_core_portal),modifier=Modifier.align(Alignment.BottomCenter).padding(14.dp),color=Gold,fontWeight=FontWeight.Bold)}
+            Button(onClick=map,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.AutoAwesome,null);Spacer(Modifier.width(8.dp));Text(stringResource(R.string.enter_egypt))}
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+            SectionTitle(stringResource(R.string.archive_status));InfoCard(stringResource(R.string.current_epoch),stringResource(R.string.epoch_egypt));InfoCard(stringResource(R.string.mission_progress),"${g.completedMissionIds.size} / ${GameContent.missions.size}");InfoCard(stringResource(R.string.time_energy),g.timeEnergy.toString());InfoCard(stringResource(R.string.upgrade_materials),g.upgradeMaterials.toString());OutlinedButton(onClick=heroes,Modifier.fillMaxWidth()){Text(stringResource(R.string.manage_team))}
+        }
+    }
+}
 
-@Composable private fun Upgrades(g:GameState,buy:(String)->Unit){Column{Header("Workshop","Upgrades","Invest coins in permanent timeline infrastructure.");LazyColumn(contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){items(g.upgrades,key={it.id}){u->Glass(Modifier.fillMaxWidth()){Row{Column(Modifier.weight(1f)){Text(u.name,fontWeight=FontWeight.Bold,fontSize=18.sp);Text(u.description,color=Muted,fontSize=13.sp);Text("Level ${u.level} / ${u.maxLevel}",color=Gold,fontSize=12.sp)};Button(onClick={buy(u.id)},enabled=g.coins>=u.cost()&&u.level<u.maxLevel){Text(if(u.level==u.maxLevel)"MAX" else "${u.cost()} ◉")}}}}}}}
-@Composable private fun Museum(g:GameState){var selected by remember{mutableStateOf(g.unlockedEpochs.firstOrNull()?:"egypt")};Column{Header("Archive","Museum","${g.completedArtifacts} of ${g.artifacts.size} artifacts restored");ScrollableTabRow(selectedTabIndex=GameContent.epochs.indexOfFirst{it.id==selected}.coerceAtLeast(0),containerColor=Ink,edgePadding=16.dp){GameContent.epochs.forEach{Tab(selected=selected==it.id,onClick={selected=it.id},enabled=it.id in g.unlockedEpochs,text={Text(it.name.substringAfter("Ancient "))})}};LazyColumn(contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){items(g.artifacts.filter{it.civilization==selected}){a->ArtifactCard(a)}}}}
-@Composable private fun ArtifactCard(a:Artifact){val rarityColor=when(a.rarity){Rarity.COMMON->Muted;Rarity.RARE->Color(0xFF76A7D1);Rarity.EPIC->Color(0xFFA58BD4);Rarity.LEGENDARY->Gold;Rarity.MYTHIC->Color(0xFFD18484)};Glass(Modifier.fillMaxWidth()){Row{Box(Modifier.size(48.dp).background(rarityColor.copy(.12f),RoundedCornerShape(14.dp)),contentAlignment=Alignment.Center){Icon(if(a.isCompleted)Icons.Outlined.AutoAwesome else Icons.Outlined.Lock,null,tint=rarityColor)};Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(a.name,fontWeight=FontWeight.Bold);Text(a.rarity.name,color=rarityColor,fontSize=10.sp);Text(a.description,color=Muted,fontSize=12.sp);LinearProgressIndicator(progress={(a.fragmentsOwned/a.fragmentsRequired.coerceAtLeast(1).toFloat()).coerceIn(0f,1f)},Modifier.fillMaxWidth().padding(top=8.dp));Text("${a.fragmentsOwned.coerceAtLeast(0)} / ${a.fragmentsRequired.coerceAtLeast(1)} fragments",fontSize=11.sp,color=Muted)}}}}
-@Composable private fun Epochs(g:GameState){Column{Header("Timeline","Epochs","Level up to restore five chapters of human history.");LazyColumn(contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){items(GameContent.epochs){e->val unlocked=e.id in g.unlockedEpochs;val arts=g.artifacts.filter{it.civilization==e.id};val progress=arts.count{it.isCompleted}/5f;Glass(Modifier.fillMaxWidth()){Row(verticalAlignment=Alignment.CenterVertically){Icon(if(unlocked)Icons.Outlined.Public else Icons.Outlined.Lock,null,tint=Color(e.accent));Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(e.name,fontWeight=FontWeight.Bold);Text(e.description,color=Muted,fontSize=12.sp);Text(if(unlocked)"${(progress*100).toInt()}% collection restored" else "Unlocks at level ${e.unlockLevel}",color=if(unlocked)Gold else Muted,fontSize=12.sp);LinearProgressIndicator(progress={if(unlocked)progress else (g.level/e.unlockLevel.toFloat()).coerceAtMost(1f)},Modifier.fillMaxWidth().padding(top=8.dp))}}}}}}}
-@Composable private fun Expeditions(g:GameState,start:(String)->Unit,claim:()->Unit){var now by remember{mutableLongStateOf(System.currentTimeMillis())};LaunchedEffect(Unit){while(true){now=System.currentTimeMillis();delay(1000)}};Column{Header("Field work","Expeditions","Send a team on a 30-second search for coins, XP and fragments.");LazyColumn(contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){items(GameContent.epochs.filter{it.id in g.unlockedEpochs}){e->val active=g.expedition.civilizationId==e.id;val remaining=((g.expedition.endsAt-now)/1000).coerceAtLeast(0);Glass(Modifier.fillMaxWidth()){Text(e.name,fontWeight=FontWeight.Bold,fontSize=18.sp);Text("Reward: 75 coins · 30 XP · 1 fragment",color=Muted,fontSize=12.sp);Spacer(Modifier.height(12.dp));when{active&&g.expedition.status==ExpeditionStatus.COMPLETED->Button(onClick=claim,Modifier.fillMaxWidth()){Text("Claim findings")};active->Column{LinearProgressIndicator(progress={(1-(remaining/30f)).coerceIn(0f,1f)},Modifier.fillMaxWidth());Text("Team returns in ${remaining}s",color=Gold,modifier=Modifier.padding(top=8.dp))};else->Button(onClick={start(e.id)},enabled=g.expedition.status==ExpeditionStatus.IDLE,modifier=Modifier.fillMaxWidth()){Text("Start expedition")}}}}}}}
-@Composable private fun Settings(g:GameState,vm:GameViewModel){var confirm by remember{mutableStateOf(false)};Column{Header("Local profile","Settings","Your game is stored privately on this device.");Column(Modifier.padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Glass(Modifier.fillMaxWidth()){SettingSwitch("Sound effects","Reserved for future sound assets",g.soundEnabled,vm::sound);HorizontalDivider(Modifier.padding(vertical=10.dp));SettingSwitch("Haptic feedback","Vibrate when the Time Core is tapped",g.vibrationEnabled,vm::vibration)};Glass(Modifier.fillMaxWidth()){Text("Jolt Time",fontWeight=FontWeight.Bold);Text("Version 1.0.0 · Offline-first",color=Muted,fontSize=12.sp);Spacer(Modifier.height(14.dp));OutlinedButton(onClick={confirm=true},Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=MaterialTheme.colorScheme.error)){Text("Reset all progress")}}}};if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text("Reset timeline?")},text={Text("All currencies, artifacts and upgrades will be permanently erased.")},dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}},confirmButton={TextButton(onClick={vm.reset();confirm=false}){Text("Reset")}})}
-@Composable private fun SettingSwitch(title:String,body:String,checked:Boolean,on:(Boolean)->Unit){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.SemiBold);Text(body,color=Muted,fontSize=12.sp)};Switch(checked,onCheckedChange=on)}}
-@Composable private fun DailyDialog(g:GameState,close:()->Unit,claim:()->Unit){val canClaim=GameEngine.canClaimDaily(g);AlertDialog(onDismissRequest=close,title={Text("Daily chronology")},text={Column{Text("Return each day to stabilize the timeline.",color=Muted);Spacer(Modifier.height(14.dp));LazyVerticalGrid(columns=androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),modifier=Modifier.height(150.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){items(7){i->val reached=i<g.dailyDay||!canClaim&&i==g.dailyDay-1;Box(Modifier.background(if(reached)Gold.copy(.18f) else Card,RoundedCornerShape(12.dp)).padding(8.dp),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("D${i+1}",fontWeight=FontWeight.Bold);Text("${50*(i+1)}",fontSize=10.sp,color=Gold)}}}}}},dismissButton={TextButton(onClick=close){Text("Later")}},confirmButton={Button(onClick=claim,enabled=canClaim){Text(if(!canClaim)"Already claimed" else "Claim day ${g.dailyDay+1}")}})}
+@Composable private fun MapScreen(g:GameState,vm:GameViewModel){
+    var selected by remember { mutableStateOf<Mission?>(null) };var story by remember { mutableStateOf<StoryScene?>(null) }
+    Column(Modifier.fillMaxSize().padding(20.dp)){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Kicker(stringResource(R.string.chapter_one));Text(stringResource(R.string.epoch_egypt),fontSize=28.sp,fontWeight=FontWeight.Bold)};Text("${g.completedMissionIds.size}/${GameContent.missions.size} ${stringResource(R.string.restored)}",color=Gold)}
+        Box(Modifier.weight(1f).fillMaxWidth().padding(top=10.dp)){
+            Canvas(Modifier.fillMaxSize()){val y=size.height*.53f;drawLine(Color(0xFF5E5239),Offset(size.width*.07f,y),Offset(size.width*.93f,y),5f,pathEffect=PathEffect.dashPathEffect(floatArrayOf(12f,10f)))}
+            Row(Modifier.fillMaxSize(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceEvenly){GameContent.missions.forEachIndexed{i,m->val unlocked=i<=g.unlockedMissionIndex;val done=m.id in g.completedMissionIds;MapNode(m,unlocked,done){if(unlocked){if(m.storyBefore!=null&&!done)story=GameContent.stories[m.storyBefore] else selected=m}}}}
+        }
+    }
+    selected?.let { m->TeamDialog(g,m,onClose={selected=null},onStart={vm.startMission(m.id);selected=null}) }
+    story?.let { scene->StoryOverlay(scene){story=null;selected=GameContent.missions[g.unlockedMissionIndex]} }
+}
+
+@Composable private fun MapNode(m:Mission,unlocked:Boolean,done:Boolean,on:()->Unit){Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.width(86.dp).clickable(enabled=unlocked,onClick=on)){Surface(shape=CircleShape,color=when{done->Gold;unlocked->Color(0xFF252B35);else->Color(0xFF14171D)},border=androidx.compose.foundation.BorderStroke(1.dp,if(unlocked)Gold.copy(.7f) else Color.DarkGray),modifier=Modifier.size(if(m.nodeType==MissionNodeType.BOSS)64.dp else 52.dp)){Box(contentAlignment=Alignment.Center){Icon(when(m.nodeType){MissionNodeType.BOSS->Icons.Outlined.Warning;MissionNodeType.ELITE->Icons.Outlined.Shield;MissionNodeType.STORY->Icons.Outlined.AutoStories;else->Icons.Outlined.Place},null,tint=if(done)Ink else if(unlocked)Gold else Muted)}};Text(keyText(m.locationKey),fontSize=10.sp,maxLines=2,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=6.dp),color=if(unlocked)Text else Muted)} }
+
+@Composable private fun TeamDialog(g:GameState,m:Mission,onClose:()->Unit,onStart:()->Unit){AlertDialog(onDismissRequest=onClose,title={Text(keyText(m.titleKey))},text={Column{Text(stringResource(R.string.objective_format,keyText("objective_${m.objective.name.lowercase()}")),color=Muted);Spacer(Modifier.height(10.dp));Text(stringResource(R.string.selected_team),fontWeight=FontWeight.Bold);Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){g.selectedTeam.mapNotNull{id->g.heroes.firstOrNull{it.id==id}}.forEach{HeroChip(it)}}}},dismissButton={TextButton(onClick=onClose){Text(stringResource(R.string.cancel))}},confirmButton={Button(onClick=onStart){Text(stringResource(R.string.start_mission))}})}
+
+@Composable private fun HeroesScreen(g:GameState,vm:GameViewModel){var selected by remember{mutableStateOf<Hero?>(null)};Column(Modifier.fillMaxSize().padding(20.dp)){Row{Column(Modifier.weight(1f)){Kicker(stringResource(R.string.roster));Text(stringResource(R.string.heroes),fontSize=28.sp,fontWeight=FontWeight.Bold)};Text("${g.selectedTeam.size}/4 ${stringResource(R.string.in_team)}",color=Gold)};Row(Modifier.weight(1f).fillMaxWidth().padding(top=14.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){g.heroes.forEach{hero->val inTeam=hero.id in g.selectedTeam;Card(Modifier.weight(1f).fillMaxHeight().clickable{selected=hero},colors=CardDefaults.cardColors(containerColor=Card),border=androidx.compose.foundation.BorderStroke(1.dp,if(inTeam)Gold else Outline)){Column(Modifier.padding(14.dp)){HeroSilhouette(hero.role);Text(keyText(hero.nameKey),fontWeight=FontWeight.Bold,fontSize=18.sp);Text(keyText("role_${hero.role.name.lowercase()}"),color=Gold,fontSize=11.sp);Text("${stringResource(R.string.level)} ${hero.level}",modifier=Modifier.padding(top=8.dp));LinearProgressIndicator(progress={hero.xp/hero.xpToNext.toFloat()},Modifier.fillMaxWidth().padding(top=5.dp));Text("HP ${hero.maxHp}  ATK ${hero.attack}",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))}}}}}
+    selected?.let{hero->HeroDetails(g,hero,{selected=null},{vm.upgradeHero(hero.id)},{checked->val next=if(checked)(g.selectedTeam+hero.id).takeLast(4) else g.selectedTeam-hero.id;vm.selectTeam(next)})}}
+
+@Composable private fun HeroDetails(g:GameState,h:Hero,close:()->Unit,upgrade:()->Unit,team:(Boolean)->Unit){AlertDialog(onDismissRequest=close,title={Text(keyText(h.nameKey))},text={Column(Modifier.verticalScroll(rememberScrollState())){Text(keyText(h.storyKey),color=Muted);Spacer(Modifier.height(10.dp));Text("HP ${h.maxHp} · ATK ${h.attack} · DEF ${h.defense} · SPD ${h.speed}");Text(keyText(h.passiveKey),color=Gold,modifier=Modifier.padding(top=8.dp));h.abilities().forEach{Text("• ${keyText(it.nameKey)}",modifier=Modifier.padding(top=5.dp))};Row(verticalAlignment=Alignment.CenterVertically){Checkbox(h.id in g.selectedTeam,onCheckedChange=team);Text(stringResource(R.string.selected_for_battle))}}},dismissButton={TextButton(onClick=close){Text(stringResource(R.string.close))}},confirmButton={Button(onClick=upgrade,enabled=g.upgradeMaterials>=h.level*25){Text(stringResource(R.string.upgrade_cost,h.level*25))}})}
+
+@Composable private fun MuseumScreen(g:GameState,vm:GameViewModel){Column(Modifier.fillMaxSize().padding(20.dp)){Row{Column(Modifier.weight(1f)){Kicker(stringResource(R.string.time_archive));Text(stringResource(R.string.museum_egypt),fontSize=28.sp,fontWeight=FontWeight.Bold)};Text("${(g.museumProgress*100).toInt()}%",fontSize=24.sp,color=Gold,fontWeight=FontWeight.Bold)};LinearProgressIndicator(progress={g.museumProgress},Modifier.fillMaxWidth().padding(vertical=10.dp));Row(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(10.dp)){g.artifacts.forEach{a->ArtifactCard(a,g.selectedTeam.firstOrNull()?.let{id->g.heroes.first{it.id==id}}){heroId->vm.equip(heroId,a.id)}}}}}
+
+@Composable private fun RowScope.ArtifactCard(a:Artifact,hero:Hero?,equip:(String)->Unit){Card(Modifier.weight(1f).fillMaxHeight(),colors=CardDefaults.cardColors(containerColor=Card),border=androidx.compose.foundation.BorderStroke(1.dp,rarityColor(a.rarity).copy(.55f))){Column(Modifier.padding(12.dp),horizontalAlignment=Alignment.CenterHorizontally){Icon(if(a.isCompleted)Icons.Outlined.Diamond else Icons.Outlined.Lock,null,tint=rarityColor(a.rarity),modifier=Modifier.size(36.dp));Text(keyText(a.nameKey),fontWeight=FontWeight.Bold,fontSize=13.sp,maxLines=2);Text(a.rarity.name,fontSize=9.sp,color=rarityColor(a.rarity));Text("${a.fragmentsOwned}/${a.fragmentsRequired}",color=Muted);Text(keyText(a.descriptionKey),fontSize=10.sp,color=Muted,maxLines=4);Spacer(Modifier.weight(1f));Text("+${a.combatBonus} ${a.stat}",color=Gold,fontSize=10.sp);Text("+${a.museumBonusPercent}% ${stringResource(R.string.account_bonus)}",fontSize=9.sp);if(a.isCompleted&&hero!=null)TextButton(onClick={equip(hero.id)}){Text(stringResource(R.string.equip_to, keyText(hero.nameKey)),fontSize=9.sp)}}}}
+
+@Composable private fun BattleScreen(g:GameState,vm:GameViewModel){val battle=g.activeBattle?:return;val active=battle.active;var ability by remember(battle.activeId){mutableIntStateOf(0)}
+    LaunchedEffect(battle.activeId,battle.result){if(battle.result==BattleResult.IN_PROGRESS&&active?.side==BattleSide.ENEMY){delay(550);vm.enemyAct()}}
+    Column(Modifier.fillMaxSize().background(Ink).padding(14.dp)){Row(verticalAlignment=Alignment.CenterVertically){Text(keyText(GameContent.missions.first{it.id==battle.missionId}.titleKey),fontWeight=FontWeight.Bold,fontSize=20.sp);Spacer(Modifier.weight(1f));Text("${stringResource(R.string.round)} ${battle.round}",color=Gold);Spacer(Modifier.width(16.dp));Text(keyText(battle.logKey),color=Muted)}
+        Row(Modifier.weight(1f).fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){BattleSideColumn(battle,BattleSide.HERO,active?.instanceId,ability){target->vm.act(ability,target)};Box(Modifier.width(80.dp),contentAlignment=Alignment.Center){Text("VS",fontSize=22.sp,color=Gold,fontWeight=FontWeight.Black)};BattleSideColumn(battle,BattleSide.ENEMY,active?.instanceId,ability){target->vm.act(ability,target)}}
+        if(active?.side==BattleSide.HERO&&battle.result==BattleResult.IN_PROGRESS)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.Center){active.abilities.forEachIndexed{i,a->Button(onClick={ability=i},enabled=active.energy>=a.energyCost,colors=ButtonDefaults.buttonColors(containerColor=if(ability==i)Gold else Color(0xFF252B35)),modifier=Modifier.padding(horizontal=5.dp)){Text("${keyText(a.nameKey)} ${if(a.energyCost>0)"· ${a.energyCost}" else ""}")}}}
+    }
+    if(battle.result!=BattleResult.IN_PROGRESS)AlertDialog(onDismissRequest={},title={Text(stringResource(if(battle.result==BattleResult.VICTORY)R.string.victory else R.string.defeat))},text={Text(stringResource(if(battle.result==BattleResult.VICTORY)R.string.victory_body else R.string.defeat_body))},confirmButton={Button(onClick=if(battle.result==BattleResult.VICTORY)vm::claimVictory else vm::retry){Text(stringResource(if(battle.result==BattleResult.VICTORY)R.string.claim_rewards else R.string.retry))}})
+}
+
+@Composable private fun RowScope.BattleSideColumn(b:BattleState,side:BattleSide,activeId:String?,ability:Int,target:(String)->Unit){Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(7.dp)){b.combatants.filter{it.side==side}.forEach{u->val canTarget=b.active?.let{actor->val friendly=actor.abilities.getOrNull(ability)?.kind in listOf(AbilityKind.HEAL,AbilityKind.SHIELD);u.alive&&friendly==(actor.side==u.side)}?:false;Card(Modifier.fillMaxWidth().clickable(enabled=canTarget){target(u.instanceId)},colors=CardDefaults.cardColors(containerColor=if(u.instanceId==activeId)Color(0xFF2D2A21) else Card),border=androidx.compose.foundation.BorderStroke(1.dp,if(canTarget)Gold else Outline)){Row(Modifier.padding(9.dp),verticalAlignment=Alignment.CenterVertically){HeroSilhouette(if(side==BattleSide.HERO)GameContent.heroes.first{it.id==u.templateId}.role else HeroRole.STRIKER,40);Column(Modifier.weight(1f).padding(horizontal=8.dp)){Text(keyText(u.nameKey),fontWeight=FontWeight.Bold,fontSize=12.sp);LinearProgressIndicator(progress={u.hp/u.maxHp.toFloat()},Modifier.fillMaxWidth(),color=if(side==BattleSide.HERO)Color(0xFF6FA987) else Color(0xFFC46D61));Text("${u.hp}/${u.maxHp} HP · ${u.energy} EN",fontSize=9.sp,color=Muted)};u.statuses.forEach{Text(it.type.name.take(2),fontSize=8.sp,color=Gold)}}}}}}
+
+@Composable private fun StoryOverlay(scene:StoryScene,finish:()->Unit){var index by remember(scene.id){mutableIntStateOf(0)};val line=scene.lines[index];Box(Modifier.fillMaxSize().background(Color(0xFF080A0D)).clickable{if(index<scene.lines.lastIndex)index++ else finish()}){Canvas(Modifier.fillMaxSize()){drawCircle(Gold.copy(.08f),radius=size.minDimension*.35f,center=Offset(size.width*.78f,size.height*.36f))};Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xE6181B21)).padding(horizontal=38.dp,vertical=22.dp)){Kicker(keyText(line.speakerKey));Text(keyText(line.textKey),fontSize=20.sp,lineHeight=28.sp);Text(stringResource(R.string.tap_to_continue),fontSize=11.sp,color=Muted,modifier=Modifier.align(Alignment.End).padding(top=12.dp))}}}
+@Composable private fun ArtifactReveal(a:Artifact,close:()->Unit){AlertDialog(onDismissRequest={},icon={Icon(Icons.Outlined.AutoAwesome,null,tint=rarityColor(a.rarity),modifier=Modifier.size(48.dp))},title={Column(horizontalAlignment=Alignment.CenterHorizontally){Kicker(stringResource(R.string.artifact_restored));Text(keyText(a.nameKey))}},text={Column(horizontalAlignment=Alignment.CenterHorizontally){Text(a.rarity.name,color=rarityColor(a.rarity));Text(keyText(a.descriptionKey),modifier=Modifier.padding(vertical=10.dp));Text("+${a.combatBonus} ${a.stat} · +${a.museumBonusPercent}% ${stringResource(R.string.museum_bonus)}",color=Gold)}},confirmButton={Button(onClick=close){Text(stringResource(R.string.add_to_museum))}})}
+@Composable private fun ChapterComplete(){var visible by remember{mutableStateOf(true)};if(visible)AlertDialog(onDismissRequest={},icon={Icon(Icons.Outlined.EmojiEvents,null,tint=Gold)},title={Text(stringResource(R.string.egypt_restored))},text={Text(stringResource(R.string.egypt_restored_body))},confirmButton={Button(onClick={visible=false}){Text(stringResource(R.string.return_archive))}})}
+
+@Composable private fun HeroChip(h:Hero){Surface(shape=RoundedCornerShape(10.dp),color=Card){Text(keyText(h.nameKey),Modifier.padding(9.dp),fontSize=12.sp)}}
+@Composable private fun HeroSilhouette(role:HeroRole,size:Int=66){Box(Modifier.size(size.dp).background(Gold.copy(.1f),CircleShape),contentAlignment=Alignment.Center){Icon(when(role){HeroRole.VANGUARD->Icons.Outlined.Shield;HeroRole.STRIKER->Icons.Outlined.Bolt;HeroRole.SCOUT->Icons.Outlined.Visibility;HeroRole.SUPPORT->Icons.Outlined.Favorite;HeroRole.SCHOLAR->Icons.Outlined.AutoStories},null,tint=Gold)}}
+@Composable private fun InfoCard(label:String,value:String){Surface(shape=RoundedCornerShape(14.dp),color=Card,border=androidx.compose.foundation.BorderStroke(1.dp,Outline)){Row(Modifier.fillMaxWidth().padding(14.dp)){Text(label,color=Muted);Spacer(Modifier.weight(1f));Text(value,fontWeight=FontWeight.Bold,color=Gold)}}}
+@Composable private fun Kicker(text:String){Text(text.uppercase(),fontSize=10.sp,letterSpacing=1.5.sp,color=Gold,fontWeight=FontWeight.Bold)}
+@Composable private fun SectionTitle(text:String){Text(text,fontSize=16.sp,fontWeight=FontWeight.Bold)}
+@Composable private fun keyText(key:String):String{val context=LocalContext.current;val id=context.resources.getIdentifier(key,"string",context.packageName);return if(id==0)key else stringResource(id)}
+private fun Hero.abilities()=listOf(basic,skill,ultimate)
+private fun rarityColor(r:Rarity)=when(r){Rarity.COMMON->Muted;Rarity.RARE->Color(0xFF7FA8C9);Rarity.EPIC->Color(0xFFA78BC5);Rarity.LEGENDARY->Gold;Rarity.MYTHIC->Color(0xFFC77C70)}
