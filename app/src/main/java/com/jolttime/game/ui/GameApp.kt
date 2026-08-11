@@ -26,15 +26,131 @@ import com.jolttime.game.ui.theme.*
 import kotlinx.coroutines.delay
 
 private enum class Tab(val title:String){ HOME("Home"),UPGRADES("Upgrades"),MUSEUM("Museum"),EPOCHS("Epochs"),EXPEDITIONS("Expeditions"),SETTINGS("Settings") }
-@Composable fun GameApp(vm:GameViewModel){ JoltTheme { val ui by vm.ui.collectAsStateWithLifecycle(); var tab by remember{mutableStateOf(Tab.HOME)}; var daily by remember{mutableStateOf(false)}
-    if(!ui.loaded){ Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()} } else Scaffold(bottomBar={ NavigationBar(containerColor=Color(0xFF0E1117)){ Tab.entries.forEach { item->NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(when(item){Tab.HOME->Icons.Outlined.Bolt;Tab.UPGRADES->Icons.Outlined.TrendingUp;Tab.MUSEUM->Icons.Outlined.AccountBalance;Tab.EPOCHS->Icons.Outlined.Public;Tab.EXPEDITIONS->Icons.Outlined.Explore;Tab.SETTINGS->Icons.Outlined.Settings},item.title)},label={Text(item.title.take(5),fontSize=9.sp)}) } } }){ pad->Box(Modifier.padding(pad).fillMaxSize()){when(tab){Tab.HOME->Home(ui.game,vm::tap,{daily=true});Tab.UPGRADES->Upgrades(ui.game,vm::buy);Tab.MUSEUM->Museum(ui.game);Tab.EPOCHS->Epochs(ui.game);Tab.EXPEDITIONS->Expeditions(ui.game,vm::startExpedition,vm::claimExpedition);Tab.SETTINGS->Settings(ui.game,vm)}}}
-    if(daily) DailyDialog(ui.game,{daily=false},{vm.claimDaily();daily=false})
-    if(ui.offlineReward>0) AlertDialog(onDismissRequest=vm::dismissOffline,icon={Icon(Icons.Outlined.NightsStay,null)},title={Text("Welcome back, Keeper")},text={Text("Your Time Engine recovered ${ui.offlineReward} shards while you were away.")},confirmButton={Button(onClick=vm::dismissOffline){Text("Collect")}})
-    if(ui.showLevelUp) AlertDialog(onDismissRequest=vm::dismissLevel,title={Text("Timeline expanded")},text={Text("You reached level ${ui.game.level}. New history may now be within reach.")},confirmButton={Button(onClick=vm::dismissLevel){Text("Continue")}})
-} } }
+
+@Composable
+fun GameApp(vm: GameViewModel) {
+    JoltTheme {
+        val ui by vm.ui.collectAsStateWithLifecycle()
+        var tab by remember { mutableStateOf(Tab.HOME) }
+        var daily by remember { mutableStateOf(false) }
+
+        if (!ui.loaded) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Scaffold(
+                bottomBar = {
+                    NavigationBar(containerColor = Color(0xFF0E1117)) {
+                        Tab.entries.forEach { item ->
+                            NavigationBarItem(
+                                selected = tab == item,
+                                onClick = { tab = item },
+                                icon = {
+                                    Icon(
+                                        imageVector = when (item) {
+                                            Tab.HOME -> Icons.Outlined.Bolt
+                                            Tab.UPGRADES -> Icons.Outlined.TrendingUp
+                                            Tab.MUSEUM -> Icons.Outlined.AccountBalance
+                                            Tab.EPOCHS -> Icons.Outlined.Public
+                                            Tab.EXPEDITIONS -> Icons.Outlined.Explore
+                                            Tab.SETTINGS -> Icons.Outlined.Settings
+                                        },
+                                        contentDescription = item.title
+                                    )
+                                },
+                                label = { Text(item.title.take(5), fontSize = 9.sp) }
+                            )
+                        }
+                    }
+                }
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                ) {
+                    when (tab) {
+                        Tab.HOME -> Home(ui.game, vm::tap, daily = { daily = true })
+                        Tab.UPGRADES -> Upgrades(ui.game, vm::buy)
+                        Tab.MUSEUM -> Museum(ui.game)
+                        Tab.EPOCHS -> Epochs(ui.game)
+                        Tab.EXPEDITIONS -> Expeditions(
+                            ui.game,
+                            vm::startExpedition,
+                            vm::claimExpedition
+                        )
+                        Tab.SETTINGS -> Settings(ui.game, vm)
+                    }
+                }
+            }
+
+            if (daily) {
+                DailyDialog(
+                    g = ui.game,
+                    close = { daily = false },
+                    claim = {
+                        vm.claimDaily()
+                        daily = false
+                    }
+                )
+            }
+
+            if (ui.offlineReward > 0) {
+                AlertDialog(
+                    onDismissRequest = vm::dismissOffline,
+                    icon = { Icon(Icons.Outlined.NightsStay, contentDescription = null) },
+                    title = { Text("Welcome back, Keeper") },
+                    text = {
+                        Text(
+                            "Your Time Engine recovered ${ui.offlineReward} shards " +
+                                "while you were away."
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = vm::dismissOffline) {
+                            Text("Collect")
+                        }
+                    }
+                )
+            }
+
+            if (ui.showLevelUp) {
+                AlertDialog(
+                    onDismissRequest = vm::dismissLevel,
+                    title = { Text("Timeline expanded") },
+                    text = {
+                        Text(
+                            "You reached level ${ui.game.level}. " +
+                                "New history may now be within reach."
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = vm::dismissLevel) {
+                            Text("Continue")
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
 
 @Composable private fun Header(kicker:String,title:String,body:String=""){Column(Modifier.padding(horizontal=20.dp,vertical=18.dp)){Text(kicker.uppercase(),color=Gold,fontSize=11.sp,fontWeight=FontWeight.Bold);Text(title,fontSize=28.sp,fontWeight=FontWeight.Bold);if(body.isNotEmpty())Text(body,color=Muted,fontSize=14.sp)}}
-@Composable private fun Glass(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit)=Column(modifier.background(Card,RoundedCornerShape(20.dp)).border(1.dp,Color(0xFF282E38),RoundedCornerShape(20.dp)).padding(16.dp),content=content)
+@Composable
+private fun Glass(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) = Column(
+    modifier = modifier
+        .background(Card, RoundedCornerShape(20.dp))
+        .border(1.dp, Color(0xFF282E38), RoundedCornerShape(20.dp))
+        .padding(16.dp),
+    content = content
+)
 @Composable private fun Home(g:GameState,tap:()->Unit,daily:()->Unit){val haptic=LocalHapticFeedback.current;var pressed by remember{mutableStateOf(false)};var float by remember{mutableIntStateOf(0)};val scale by animateFloatAsState(if(pressed).92f else 1f,label="core")
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Box(Modifier.weight(1f)){Header("Keeper level ${g.level}","The Time Core")};IconButton(onClick=daily){Icon(Icons.Outlined.CardGiftcard,"Daily reward",tint=Gold)}}
         Column(Modifier.padding(horizontal=20.dp)){Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){Stat("TIME SHARDS",g.timeShards.toString(),Modifier.weight(1f));Stat("COINS",g.coins.toString(),Modifier.weight(1f))};Spacer(Modifier.height(14.dp));Text("XP  ${g.xp} / ${g.xpToNextLevel}",fontSize=12.sp,color=Muted);LinearProgressIndicator(progress={(g.xp/g.xpToNextLevel.toFloat()).coerceIn(0f,1f)},Modifier.fillMaxWidth().padding(top=7.dp).height(7.dp).clip(CircleShape))
