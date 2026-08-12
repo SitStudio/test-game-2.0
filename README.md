@@ -1,6 +1,6 @@
 # Jolt Time
 
-Jolt Time is an offline-first, story-driven historical RPG for Android. The current vertical slice follows a newly awakened Keeper of Time through Ancient Egypt: explore a node map, assemble four original heroes, fight real speed-ordered turn-based battles, restore artifacts, and stabilize the first chapter of the Temporal Fracture.
+Jolt Time is an offline-first historical action RPG for Android. The Ancient Egypt vertical slice combines a node campaign, a three-hero team, directly controlled real-time battles, hero growth, artifacts, and the Temporal Fracture story.
 
 The app uses Kotlin, Jetpack Compose, Material 3, MVVM, coroutines, Preferences DataStore, and kotlinx.serialization. It has no backend, login, ads, payments, or network requirement.
 
@@ -25,9 +25,10 @@ The APK is produced at `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actio
 
 ## Architecture
 
-- `domain/model/GameModels.kt` — persisted campaign, hero, mission, artifact, status, and battle models.
+- `domain/model/GameModels.kt` — persisted campaign, hero, mission, ability, and artifact models.
 - `domain/model/GameContent.kt` — data-driven Ancient Egypt heroes, enemies, missions, artifacts, and dialogue.
-- `game/BattleEngine.kt` — deterministic combat rules, speed order, energy, defense, critical hits, statuses, support actions, objective completion, and enemy AI.
+- `game/ActionBattleEngine.kt` — fixed-step movement, targeting, cooldowns, attacks, skills, ultimates, ally assistance, enemy AI, and boss stages.
+- `game/GameBattleView.kt` — Android Canvas battlefield renderer and multitouch joystick/action controls. Compose remains responsible for menus and story UI.
 - `game/RpgEngine.kt` — campaign rewards, hero progression, team selection, artifact equipment, and chapter completion.
 - `data/local` — corruption-tolerant DataStore JSON persistence and old-save fallback.
 - `ui/GameApp.kt` — landscape Archive, Egypt map, team/heroes, battle, story, artifact reveal, and museum UI.

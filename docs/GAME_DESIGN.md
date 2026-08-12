@@ -6,11 +6,11 @@ The Keeper of Time investigates the **Temporal Fracture**, a deliberate corrupti
 
 ## Chapter structure
 
-Ancient Egypt contains six route nodes from the Time Portal to the Great Pyramid. Battles include elimination and survive-turn objectives, an elite route, discoveries, story interludes, and the phase-changing Echo of Apophis boss. The recurring unknown symbol establishes a twelve-epoch mystery without revealing its architect.
+Ancient Egypt contains eight route nodes from the Time Portal to the Great Pyramid. Battles include elimination, survival, anomaly-destruction, an elite route, artifact discoveries, story interludes, and the phase-changing Echo of Apophis boss. The recurring unknown symbol establishes a twelve-epoch mystery without revealing its architect.
 
 ## Combat
 
-Up to four heroes act in speed order. Basic attacks build energy; skills and ultimates spend it. Defense reduces damage, critical hits multiply it, and status architecture supports stun, burn, bleed, weakness, shields, and time slow. The boss changes its AI below half health and begins using Broken Eclipse.
+The player directly moves one of three heroes with a virtual joystick and uses attack, skill, ultimate, and hero-switch controls. Allies follow and assist automatically; enemies chase, select targets, and attack continuously. Defense, critical hits, shields, cooldowns, energy, freeze, slow, healing, ranged attacks, dashes, and area attacks are simulated in a renderer-independent fixed-step engine. The Echo of Apophis enters a more dangerous stage below half health.
 
 ## Progression and museum
 

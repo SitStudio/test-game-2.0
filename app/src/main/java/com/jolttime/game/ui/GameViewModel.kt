@@ -25,10 +25,7 @@ class GameViewModel(application: Application): AndroidViewModel(application) {
     fun introSeen()=mutate(RpgEngine::markIntroSeen)
     fun selectTeam(ids:List<String>)=mutate { RpgEngine.selectTeam(it,ids) }
     fun startMission(id:String)=mutate { RpgEngine.startMission(it,id) }
-    fun act(ability:Int,target:String)=mutate { RpgEngine.battleAction(it,ability,target) }
-    fun enemyAct()=mutate(RpgEngine::enemyAction)
-    fun claimVictory()=mutate(RpgEngine::claimVictory)
-    fun retry()=mutate(RpgEngine::retry)
+    fun finishMission(victory:Boolean)=mutate { RpgEngine.finishMission(it,victory) }
     fun dismissArtifact()=mutate(RpgEngine::dismissArtifact)
     fun dismissStory()=mutate(RpgEngine::dismissStory)
     fun upgradeHero(id:String)=mutate { RpgEngine.upgradeHero(it,id) }
