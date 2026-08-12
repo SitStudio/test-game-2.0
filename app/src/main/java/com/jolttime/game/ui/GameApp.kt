@@ -37,7 +37,11 @@ fun GameApp(vm: GameViewModel) {
         Box(Modifier.fillMaxSize().background(JoltPalette.background).windowInsetsPadding(WindowInsets.safeDrawing)) {
             when {
                 !ui.loaded -> CircularProgressIndicator(Modifier.align(Alignment.Center), color=JoltPalette.goldAccent)
-                !ui.game.storyIntroSeen -> StoryScene(GameContent.stories.getValue("intro"), EnvironmentScene.ARCHIVE, vm::introSeen)
+                !ui.game.storyIntroSeen -> StorySceneOverlay(
+                    scene = GameContent.stories.getValue("intro"),
+                    environment = EnvironmentScene.ARCHIVE,
+                    finish = vm::introSeen,
+                )
                 ui.game.activeMissionId != null -> ActionBattleScreen(ui.game, vm)
                 else -> when(screen) {
                     Screen.ARCHIVE -> ArchiveHub(ui.game, { screen=Screen.MAP }, {screen=Screen.HEROES}, {screen=Screen.MUSEUM}, {screen=Screen.SETTINGS})
@@ -51,7 +55,11 @@ fun GameApp(vm: GameViewModel) {
             val story=ui.game.pendingStoryId
             val artifact=ui.game.pendingArtifactId
             when {
-                story!=null -> StoryScene(GameContent.stories.getValue(story),sceneForMission(ui.game.unlockedMissionIndex),vm::dismissStory)
+                story != null -> StorySceneOverlay(
+                    scene = GameContent.stories.getValue(story),
+                    environment = sceneForMission(ui.game.unlockedMissionIndex),
+                    finish = vm::dismissStory,
+                )
                 artifact!=null -> ArtifactReveal(ui.game.artifacts.first{it.id==artifact},vm::dismissArtifact)
                 ui.game.chapterComplete -> ChapterCelebration()
             }
@@ -80,32 +88,463 @@ private enum class HubSymbol { CAMPAIGN,HEROES,MUSEUM }
 @Composable private fun CompactHud(g:GameState,settings:()->Unit,modifier:Modifier=Modifier){Row(modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){HudPill("LV ${g.accountLevel}",JoltPalette.goldAccent);Spacer(Modifier.weight(1f));HudPill("◈ ${g.timeEnergy}",JoltPalette.temporalBlue);HudPill("◆ ${g.upgradeMaterials}",JoltPalette.goldAccent);Box(Modifier.size(42.dp).background(JoltPalette.surface.copy(.85f),CircleShape).clickable(onClick=settings),contentAlignment=Alignment.Center){Text("⚙",fontSize=20.sp,color=JoltPalette.textPrimary)}}}
 @Composable private fun HudPill(text:String,color:Color){Text(text,color=JoltPalette.textPrimary,fontWeight=FontWeight.Bold,modifier=Modifier.background(JoltPalette.surface.copy(.88f),CircleShape).border(1.dp,color.copy(.55f),CircleShape).padding(horizontal=13.dp,vertical=8.dp))}
 
-@Composable private fun EgyptMap(g:GameState,vm:GameViewModel,back:()->Unit){val palette=JoltPalette;var selected by remember{mutableStateOf<Mission?>(null)};var story by remember{mutableStateOf<StoryScene?>(null)};Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.NILE);TopBack(stringResource(R.string.epoch_egypt),back);Canvas(Modifier.fillMaxSize().padding(horizontal=80.dp,vertical=70.dp)){val points=GameContent.missions.indices.map{i->Offset(size.width*(.05f+i*.9f/(GameContent.missions.size-1)),size.height*(if(i%2==0).58f else .35f))};points.zipWithNext().forEach{(a,b)->drawLine(Color(0xFF704E2D),a,b,14f,StrokeCap.Round);drawLine(palette.goldAccent.copy(.7f),a,b,3f,StrokeCap.Round)}};Row(Modifier.fillMaxWidth().align(Alignment.Center).horizontalScroll(rememberScrollState()).padding(horizontal=62.dp),horizontalArrangement=Arrangement.spacedBy(38.dp)){GameContent.missions.forEachIndexed{i,m->val unlocked=i<=g.unlockedMissionIndex;val done=m.id in g.completedMissionIds;MissionNode(m,unlocked,done,i==g.unlockedMissionIndex){if(unlocked){if(m.storyBefore!=null&&!done)story=GameContent.stories[m.storyBefore] else selected=m}}}};selected?.let{TeamPanel(g,it,{selected=null}){vm.startMission(it.id);selected=null}};story?.let{s->StoryScene(s,sceneForMission(g.unlockedMissionIndex)){story=null;selected=GameContent.missions[g.unlockedMissionIndex]}}}}
+@Composable private fun EgyptMap(g:GameState,vm:GameViewModel,back:()->Unit){val palette=JoltPalette;var selected by remember{mutableStateOf<Mission?>(null)};var story by remember{mutableStateOf<StoryScene?>(null)};Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.NILE);TopBack(stringResource(R.string.epoch_egypt),back);Canvas(Modifier.fillMaxSize().padding(horizontal=80.dp,vertical=70.dp)){val points=GameContent.missions.indices.map{i->Offset(size.width*(.05f+i*.9f/(GameContent.missions.size-1)),size.height*(if(i%2==0).58f else .35f))};points.zipWithNext().forEach{(a,b)->drawLine(Color(0xFF704E2D),a,b,14f,StrokeCap.Round);drawLine(palette.goldAccent.copy(.7f),a,b,3f,StrokeCap.Round)}};Row(Modifier.fillMaxWidth().align(Alignment.Center).horizontalScroll(rememberScrollState()).padding(horizontal=62.dp),horizontalArrangement=Arrangement.spacedBy(38.dp)){GameContent.missions.forEachIndexed{i,m->val unlocked=i<=g.unlockedMissionIndex;val done=m.id in g.completedMissionIds;MissionNode(m,unlocked,done,i==g.unlockedMissionIndex){if(unlocked){if(m.storyBefore!=null&&!done)story=GameContent.stories[m.storyBefore] else selected=m}}}};selected?.let{TeamPanel(g,it,{selected=null}){vm.startMission(it.id);selected=null}};story?.let{s->StorySceneOverlay(s,sceneForMission(g.unlockedMissionIndex)){story=null;selected=GameContent.missions[g.unlockedMissionIndex]}}}}
 @Composable private fun MissionNode(m:Mission,unlocked:Boolean,done:Boolean,current:Boolean,onClick:()->Unit){val palette=JoltPalette;val pulse=rememberInfiniteTransition(label=m.id).animateFloat(.72f,1f,infiniteRepeatable(tween(900),RepeatMode.Reverse),label="node").value;Column(Modifier.width(92.dp).clickable(enabled=unlocked,onClick=onClick),horizontalAlignment=Alignment.CenterHorizontally){Canvas(Modifier.size(if(m.nodeType==MissionNodeType.BOSS)78.dp else 64.dp).scale(if(current)pulse else 1f)){drawCircle(if(done)palette.success else if(unlocked)palette.goldAccent else Color(0xFF5C5145));drawCircle(Color(0xFF322319),size.minDimension*.38f);when(m.nodeType){MissionNodeType.BOSS->drawPath(Path().apply{moveTo(center.x,8f);lineTo(size.width-8f,size.height-10f);lineTo(8f,size.height-10f);close()},palette.danger);MissionNodeType.ELITE->drawCircle(palette.danger,size.minDimension*.19f,center);MissionNodeType.ARTIFACT->drawPath(Path().apply{moveTo(center.x,8f);lineTo(size.width-10f,center.y);lineTo(center.x,size.height-8f);lineTo(10f,center.y);close()},palette.temporalBlue);else->drawCircle(palette.temporalBlue,size.minDimension*.16f,center)};if(done){drawLine(Color.White,Offset(size.width*.29f,size.height*.53f),Offset(size.width*.44f,size.height*.68f),6f);drawLine(Color.White,Offset(size.width*.44f,size.height*.68f),Offset(size.width*.73f,size.height*.34f),6f)}};Text(keyText(m.locationKey),color=if(unlocked)JoltPalette.textPrimary else JoltPalette.textMuted,fontSize=11.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center,maxLines=2)}}
 
 @Composable private fun HeroesRoom(g:GameState,vm:GameViewModel,back:()->Unit){var selectedId by remember{mutableStateOf(g.selectedTeam.first())};val hero=g.heroes.first{it.id==selectedId};Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.ARCHIVE);TopBack(stringResource(R.string.heroes),back);Column(Modifier.align(Alignment.CenterStart).padding(start=32.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){g.heroes.forEach{h->Box(Modifier.size(66.dp).clip(CircleShape).background(if(h.id==selectedId)JoltPalette.goldAccent else JoltPalette.surfaceElevated).border(2.dp,if(h.id in g.selectedTeam)JoltPalette.temporalBlue else Color.Transparent,CircleShape).clickable{selectedId=h.id}){HeroVisual(h.id,Modifier.fillMaxSize().padding(5.dp))}}};HeroVisual(hero.id,Modifier.align(Alignment.Center).size(290.dp));Column(Modifier.align(Alignment.CenterEnd).width(270.dp).padding(end=24.dp).background(JoltPalette.surface.copy(.9f),RoundedCornerShape(24.dp)).padding(18.dp)){Text(keyText(hero.nameKey),fontSize=27.sp,fontWeight=FontWeight.Black,color=JoltPalette.textPrimary);Text(keyText("role_${hero.role.name.lowercase()}"),color=JoltPalette.goldAccent,fontWeight=FontWeight.Bold);Text("LV ${hero.level}  •  PWR ${hero.attack+hero.defense+hero.maxHp/10}",color=JoltPalette.textSecondary,modifier=Modifier.padding(vertical=8.dp));StatBar("HP",hero.maxHp,350,JoltPalette.success);StatBar("ATK",hero.attack,80,JoltPalette.danger);Row(Modifier.padding(top=13.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){hero.abilities().forEach{AbilityOrb(keyText(it.nameKey))}};GameButton(stringResource(R.string.upgrade_cost,hero.level*25),{vm.upgradeHero(hero.id)},g.upgradeMaterials>=hero.level*25);val selected=hero.id in g.selectedTeam;GameButton(if(selected)stringResource(R.string.in_team) else stringResource(R.string.selected_for_battle),{if(!selected)vm.selectTeam((g.selectedTeam+hero.id).takeLast(3))},!selected)}}}
 @Composable private fun AbilityOrb(name:String){Box(Modifier.size(54.dp).background(JoltPalette.surfaceElevated,CircleShape).border(1.dp,JoltPalette.temporalBlue,CircleShape),contentAlignment=Alignment.Center){Text(name.take(2).uppercase(),color=JoltPalette.textPrimary,fontWeight=FontWeight.Black)}}
 @Composable private fun StatBar(label:String,value:Int,max:Int,color:Color){Row(verticalAlignment=Alignment.CenterVertically){Text(label,color=JoltPalette.textSecondary,fontSize=10.sp,modifier=Modifier.width(28.dp));Box(Modifier.weight(1f).height(8.dp).background(Color.Black.copy(.35f),CircleShape)){Box(Modifier.fillMaxWidth((value/max.toFloat()).coerceIn(0f,1f)).fillMaxHeight().background(color,CircleShape))};Text(value.toString(),color=JoltPalette.textPrimary,fontSize=10.sp,modifier=Modifier.padding(start=6.dp))}}
 
-@Composable private fun MuseumRoom(g:GameState,vm:GameViewModel,back:()->Unit){val palette=JoltPalette;Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.TEMPLE);Box(Modifier.fillMaxSize().background(Color.Black.copy(.34f)));TopBack(stringResource(R.string.museum_egypt),back);Text("${(g.museumProgress*100).toInt()}%",Modifier.align(Alignment.TopEnd).padding(22.dp),fontSize=25.sp,fontWeight=FontWeight.Black,color=JoltPalette.goldAccent);Row(Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal=38.dp),horizontalArrangement=Arrangement.SpaceEvenly){g.artifacts.forEach{a->Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.width(130.dp)){Box(Modifier.size(118.dp)){Canvas(Modifier.fillMaxSize()){drawOval(Color(0xFF6C4D34),Offset(8f,size.height*.73f),androidx.compose.ui.geometry.Size(size.width-16f,size.height*.24f));artifactAsset(a.id).run{draw(center+Offset(0f,-8f),.65f,a.isCompleted)}}};Text(if(a.isCompleted)keyText(a.nameKey) else "???",color=if(a.isCompleted)JoltPalette.textPrimary else JoltPalette.textMuted,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center);Text("${a.fragmentsOwned}/${a.fragmentsRequired}",color=JoltPalette.goldAccent,fontSize=11.sp)}}}}
+@Composable
+private fun MuseumRoom(
+    g: GameState,
+    vm: GameViewModel,
+    back: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        EnvironmentVisual(EnvironmentScene.TEMPLE)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = .34f)),
+        )
+        TopBack(title = stringResource(R.string.museum_egypt), back = back)
+        Text(
+            text = "${(g.museumProgress * 100).toInt()}%",
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(22.dp),
+            color = JoltPalette.goldAccent,
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Black,
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(horizontal = 38.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            g.artifacts.forEach { artifact ->
+                Column(
+                    modifier = Modifier.width(130.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(modifier = Modifier.size(118.dp)) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawOval(
+                                color = Color(0xFF6C4D34),
+                                topLeft = Offset(8f, size.height * .73f),
+                                size = androidx.compose.ui.geometry.Size(
+                                    width = size.width - 16f,
+                                    height = size.height * .24f,
+                                ),
+                            )
+                            artifactAsset(artifact.id).run {
+                                draw(
+                                    center = center + Offset(0f, -8f),
+                                    scale = .65f,
+                                    discovered = artifact.isCompleted,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = if (artifact.isCompleted) keyText(artifact.nameKey) else "???",
+                        color = if (artifact.isCompleted) JoltPalette.textPrimary else JoltPalette.textMuted,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "${artifact.fragmentsOwned}/${artifact.fragmentsRequired}",
+                        color = JoltPalette.goldAccent,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+        }
+    }
+}
 
-@Composable private fun StoryScene(scene:StoryScene,environment:EnvironmentScene,finish:()->Unit){var index by remember(scene.id){mutableIntStateOf(0)};val line=scene.lines[index];val heroId=speakerHero(line.speakerKey);Box(Modifier.fillMaxSize().clickable{if(index<scene.lines.lastIndex)index++ else finish()}){EnvironmentVisual(environment);Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black.copy(.18f),Color.Transparent,Color.Black.copy(.28f)))));AnimatedVisibility(heroId!=null,enter=fadeIn()+slideInHorizontally{it/4}){if(heroId!=null)HeroVisual(heroId,Modifier.fillMaxHeight(.88f).width(380.dp).padding(start=30.dp),facingRight=true)};Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent,Color(0xF20A0C12)))).padding(start=42.dp,end=42.dp,top=48.dp,bottom=20.dp)){Text(keyText(line.speakerKey),color=JoltPalette.goldAccent,fontSize=15.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text(keyText(line.textKey),color=JoltPalette.textPrimary,fontSize=22.sp,lineHeight=28.sp,modifier=Modifier.widthIn(max=720.dp));Text("▼",color=JoltPalette.temporalBlue,modifier=Modifier.align(Alignment.End))}}}
+@Composable
+private fun StorySceneOverlay(
+    scene: StoryScene,
+    environment: EnvironmentScene,
+    finish: () -> Unit,
+) {
+    var index by remember(scene.id) { mutableIntStateOf(0) }
+    val line = scene.lines[index]
+    val heroId = speakerHero(line.speakerKey)
 
-@Composable private fun TeamPanel(g:GameState,m:Mission,close:()->Unit,start:()->Unit){Box(Modifier.fillMaxSize().background(Color.Black.copy(.65f)).clickable(onClick=close),contentAlignment=Alignment.Center){Column(Modifier.width(520.dp).background(Brush.horizontalGradient(listOf(Color(0xFF24202A),Color(0xFF172431))),RoundedCornerShape(28.dp)).border(2.dp,JoltPalette.goldAccent.copy(.6f),RoundedCornerShape(28.dp)).clickable(enabled=false){}.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){Text(keyText(m.titleKey),color=JoltPalette.textPrimary,fontSize=24.sp,fontWeight=FontWeight.Black);Text(keyText("objective_${m.objective.name.lowercase()}"),color=JoltPalette.textSecondary);Row(Modifier.padding(vertical=15.dp),horizontalArrangement=Arrangement.spacedBy(20.dp)){g.selectedTeam.mapNotNull{id->g.heroes.firstOrNull{it.id==id}}.forEach{h->Column(horizontalAlignment=Alignment.CenterHorizontally){HeroVisual(h.id,Modifier.size(95.dp));Text(keyText(h.nameKey),color=JoltPalette.textPrimary,fontSize=11.sp)}}};GameButton(stringResource(R.string.start_mission),start,true)}}}
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable {
+                if (index < scene.lines.lastIndex) index++ else finish()
+            },
+    ) {
+        EnvironmentVisual(environment)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = .18f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = .28f),
+                        ),
+                    ),
+                ),
+        )
+        AnimatedVisibility(
+            visible = heroId != null,
+            enter = fadeIn() + slideInHorizontally { it / 4 },
+        ) {
+            if (heroId != null) {
+                HeroVisual(
+                    heroId = heroId,
+                    modifier = Modifier
+                        .fillMaxHeight(.88f)
+                        .width(380.dp)
+                        .padding(start = 30.dp),
+                    facingRight = true,
+                )
+            }
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color(0xF20A0C12)),
+                    ),
+                )
+                .padding(start = 42.dp, end = 42.dp, top = 48.dp, bottom = 20.dp),
+        ) {
+            Text(
+                text = keyText(line.speakerKey),
+                color = JoltPalette.goldAccent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+            )
+            Text(
+                text = keyText(line.textKey),
+                modifier = Modifier.widthIn(max = 720.dp),
+                color = JoltPalette.textPrimary,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+            )
+            Text(
+                text = "▼",
+                modifier = Modifier.align(Alignment.End),
+                color = JoltPalette.temporalBlue,
+            )
+        }
+    }
+}
 
-@Composable private fun ActionBattleScreen(g:GameState,vm:GameViewModel){val mission=GameContent.missions.first{it.id==g.activeMissionId};val heroes=g.selectedTeam.mapNotNull{id->g.heroes.firstOrNull{it.id==id}};val labels=GameBattleView.Labels(stringResource(R.string.control_attack),stringResource(R.string.control_skill),stringResource(R.string.control_ultimate),stringResource(R.string.control_switch),keyText(mission.titleKey),stringResource(R.string.victory),stringResource(R.string.defeat));AndroidView(factory={GameBattleView(it,mission,heroes,g.artifacts,labels,vm::battleEnded)},Modifier.fillMaxSize())}
+@Composable
+private fun TeamPanel(
+    g: GameState,
+    m: Mission,
+    close: () -> Unit,
+    start: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = .65f))
+            .clickable(onClick = close),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .width(520.dp)
+                .background(
+                    Brush.horizontalGradient(listOf(Color(0xFF24202A), Color(0xFF172431))),
+                    RoundedCornerShape(28.dp),
+                )
+                .border(2.dp, JoltPalette.goldAccent.copy(alpha = .6f), RoundedCornerShape(28.dp))
+                .clickable(enabled = false) {}
+                .padding(22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = keyText(m.titleKey),
+                color = JoltPalette.textPrimary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = keyText("objective_${m.objective.name.lowercase()}"),
+                color = JoltPalette.textSecondary,
+            )
+            Row(
+                modifier = Modifier.padding(vertical = 15.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                g.selectedTeam.mapNotNull { id -> g.heroes.firstOrNull { it.id == id } }
+                    .forEach { hero ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            HeroVisual(hero.id, Modifier.size(95.dp))
+                            Text(
+                                text = keyText(hero.nameKey),
+                                color = JoltPalette.textPrimary,
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
+            }
+            GameButton(label = stringResource(R.string.start_mission), onClick = start, enabled = true)
+        }
+    }
+}
 
-@Composable private fun ResultScreen(victory:Boolean,g:GameState,continueAction:()->Unit){val mission=g.activeMissionId?.let{id->GameContent.missions.firstOrNull{it.id==id}};Box(Modifier.fillMaxSize().background(Color(0xEE0B0D13)),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(victory)stringResource(R.string.victory) else stringResource(R.string.defeat),fontSize=45.sp,fontWeight=FontWeight.Black,color=if(victory)JoltPalette.goldAccent else JoltPalette.danger);if(victory){Text("★ ★ ★",fontSize=38.sp,color=JoltPalette.goldAccent);Row(horizontalArrangement=Arrangement.spacedBy(18.dp),modifier=Modifier.padding(16.dp)){RewardOrb("XP",mission?.rewardXp?:0,JoltPalette.temporalBlue);RewardOrb("◆",mission?.rewardMaterial?:0,JoltPalette.goldAccent);RewardOrb("◈",10,JoltPalette.success)}};GameButton(if(victory)stringResource(R.string.continue_label) else stringResource(R.string.retry),continueAction,true)}}}
-@Composable private fun RewardOrb(label:String,value:Int,color:Color){Column(horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(72.dp).background(color.copy(.18f),CircleShape).border(2.dp,color,CircleShape),contentAlignment=Alignment.Center){Text(label,color=color,fontWeight=FontWeight.Black)};Text("+$value",color=JoltPalette.textPrimary,fontWeight=FontWeight.Bold)}}
+@Composable
+private fun ActionBattleScreen(
+    g: GameState,
+    vm: GameViewModel,
+) {
+    val mission = GameContent.missions.first { it.id == g.activeMissionId }
+    val heroes = g.selectedTeam.mapNotNull { id -> g.heroes.firstOrNull { it.id == id } }
+    val labels = GameBattleView.Labels(
+        attack = stringResource(R.string.control_attack),
+        skill = stringResource(R.string.control_skill),
+        ultimate = stringResource(R.string.control_ultimate),
+        switch = stringResource(R.string.control_switch),
+        objective = keyText(mission.titleKey),
+        victory = stringResource(R.string.victory),
+        defeat = stringResource(R.string.defeat),
+    )
+    AndroidView(
+        factory = { context ->
+            GameBattleView(context, mission, heroes, g.artifacts, labels, vm::battleEnded)
+        },
+        modifier = Modifier.fillMaxSize(),
+    )
+}
 
-@Composable private fun ArtifactReveal(a:Artifact,close:()->Unit){val palette=JoltPalette;Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.TEMPLE);Box(Modifier.fillMaxSize().background(Color.Black.copy(.68f)));Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Canvas(Modifier.size(190.dp)){repeat(3){i->drawCircle(palette.goldAccent.copy(.15f-i*.03f),size.minDimension*(.42f-i*.1f))};artifactAsset(a.id).run{draw(center,.9f,true)}};Text(a.rarity.name,color=JoltPalette.goldAccent,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text(keyText(a.nameKey),color=JoltPalette.textPrimary,fontSize=30.sp,fontWeight=FontWeight.Black);Text(keyText(a.descriptionKey),color=JoltPalette.textSecondary,textAlign=TextAlign.Center,modifier=Modifier.width(480.dp).padding(8.dp));Text(keyText(a.effectKey),color=JoltPalette.temporalBlue,fontWeight=FontWeight.Bold);GameButton(stringResource(R.string.add_to_museum),close,true)}}}
-@Composable private fun ChapterCelebration(){var visible by remember{mutableStateOf(true)};if(visible)Box(Modifier.fillMaxSize().background(Color(0xE80A0D12)),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("★",fontSize=80.sp,color=JoltPalette.goldAccent);Text(stringResource(R.string.egypt_restored),fontSize=32.sp,fontWeight=FontWeight.Black,color=JoltPalette.textPrimary);Text(stringResource(R.string.egypt_restored_body),color=JoltPalette.textSecondary,textAlign=TextAlign.Center,modifier=Modifier.width(520.dp));GameButton(stringResource(R.string.return_archive),{visible=false},true)}}}
+@Composable
+private fun ResultScreen(
+    victory: Boolean,
+    g: GameState,
+    continueAction: () -> Unit,
+) {
+    val mission = g.activeMissionId?.let { id -> GameContent.missions.firstOrNull { it.id == id } }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xEE0B0D13)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = if (victory) stringResource(R.string.victory) else stringResource(R.string.defeat),
+                color = if (victory) JoltPalette.goldAccent else JoltPalette.danger,
+                fontSize = 45.sp,
+                fontWeight = FontWeight.Black,
+            )
+            if (victory) {
+                Text(text = "★ ★ ★", color = JoltPalette.goldAccent, fontSize = 38.sp)
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    RewardOrb("XP", mission?.rewardXp ?: 0, JoltPalette.temporalBlue)
+                    RewardOrb("◆", mission?.rewardMaterial ?: 0, JoltPalette.goldAccent)
+                    RewardOrb("◈", 10, JoltPalette.success)
+                }
+            }
+            GameButton(
+                label = if (victory) stringResource(R.string.continue_label) else stringResource(R.string.retry),
+                onClick = continueAction,
+                enabled = true,
+            )
+        }
+    }
+}
 
-@Composable private fun SettingsScreen(vm:GameViewModel,back:()->Unit){Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.ARCHIVE);TopBack(stringResource(R.string.settings),back);Column(Modifier.align(Alignment.Center).width(440.dp).background(JoltPalette.surface.copy(.92f),RoundedCornerShape(26.dp)).border(1.dp,JoltPalette.goldAccent.copy(.5f),RoundedCornerShape(26.dp)).padding(24.dp)){Text("JOLT TIME",color=JoltPalette.goldAccent,fontSize=25.sp,fontWeight=FontWeight.Black);BuildRow(stringResource(R.string.app_version),BuildConfig.VERSION_NAME);BuildRow(stringResource(R.string.build_number),BuildConfig.VERSION_CODE.toString());BuildRow(stringResource(R.string.git_commit),BuildConfig.GIT_COMMIT);BuildRow(stringResource(R.string.build_type),BuildConfig.BUILD_TYPE.uppercase());TextButton(onClick=vm::reset,modifier=Modifier.align(Alignment.End)){Text(stringResource(R.string.reset_progress),color=JoltPalette.danger)}}}}
-@Composable private fun BuildRow(label:String,value:String){Row(Modifier.fillMaxWidth().padding(vertical=5.dp)){Text(label,color=JoltPalette.textSecondary);Spacer(Modifier.weight(1f));Text(value,color=JoltPalette.textPrimary,fontWeight=FontWeight.Bold)}}
-@Composable private fun TopBack(title:String,back:()->Unit){Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).background(JoltPalette.surface.copy(.85f),CircleShape).clickable(onClick=back),contentAlignment=Alignment.Center){Text("‹",fontSize=34.sp,color=JoltPalette.textPrimary)};Text(title.uppercase(),color=JoltPalette.textPrimary,fontSize=18.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp,modifier=Modifier.padding(start=12.dp))}}
-@Composable private fun GameButton(label:String,onClick:()->Unit,enabled:Boolean){Box(Modifier.padding(top=13.dp).heightIn(min=48.dp).background(if(enabled)Brush.horizontalGradient(listOf(JoltPalette.goldAccent,Color(0xFFF29D42)))else Brush.horizontalGradient(listOf(Color.DarkGray,Color.Gray)),CircleShape).clickable(enabled=enabled,onClick=onClick).padding(horizontal=25.dp,vertical=13.dp),contentAlignment=Alignment.Center){Text(label.uppercase(),color=Color(0xFF21170B),fontWeight=FontWeight.Black)}}
-@Composable private fun keyText(key:String):String{val context=LocalContext.current;val id=context.resources.getIdentifier(key,"string",context.packageName);return if(id==0)key else stringResource(id)}
-private fun Hero.abilities()=listOf(basic,skill,ultimate)
-private fun speakerHero(key:String)=when(key){"speaker_orian"->"orian";"speaker_nefer"->"nefer";"speaker_nadiya"->"nadiya";else->null}
-private fun sceneForMission(index:Int)=when(index){0->EnvironmentScene.ARCHIVE;1->EnvironmentScene.NILE;2->EnvironmentScene.MEMPHIS;3->EnvironmentScene.DESERT;4->EnvironmentScene.NECROPOLIS;5->EnvironmentScene.TEMPLE;else->EnvironmentScene.PYRAMID}
+@Composable
+private fun RewardOrb(label: String, value: Int, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .background(color.copy(alpha = .18f), CircleShape)
+                .border(2.dp, color, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = label, color = color, fontWeight = FontWeight.Black)
+        }
+        Text(text = "+$value", color = JoltPalette.textPrimary, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ArtifactReveal(
+    a: Artifact,
+    close: () -> Unit,
+) {
+    val palette = JoltPalette
+    Box(modifier = Modifier.fillMaxSize()) {
+        EnvironmentVisual(EnvironmentScene.TEMPLE)
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .68f)))
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Canvas(modifier = Modifier.size(190.dp)) {
+                repeat(3) { index ->
+                    drawCircle(
+                        palette.goldAccent.copy(alpha = .15f - index * .03f),
+                        size.minDimension * (.42f - index * .1f),
+                    )
+                }
+                artifactAsset(a.id).run { draw(center, .9f, true) }
+            }
+            Text(a.rarity.name, color = JoltPalette.goldAccent, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+            Text(keyText(a.nameKey), color = JoltPalette.textPrimary, fontSize = 30.sp, fontWeight = FontWeight.Black)
+            Text(
+                keyText(a.descriptionKey),
+                Modifier.width(480.dp).padding(8.dp),
+                color = JoltPalette.textSecondary,
+                textAlign = TextAlign.Center,
+            )
+            Text(keyText(a.effectKey), color = JoltPalette.temporalBlue, fontWeight = FontWeight.Bold)
+            GameButton(stringResource(R.string.add_to_museum), close, true)
+        }
+    }
+}
+
+@Composable
+private fun ChapterCelebration() {
+    var visible by remember { mutableStateOf(true) }
+    if (visible) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color(0xE80A0D12)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("★", color = JoltPalette.goldAccent, fontSize = 80.sp)
+                Text(stringResource(R.string.egypt_restored), color = JoltPalette.textPrimary, fontSize = 32.sp, fontWeight = FontWeight.Black)
+                Text(
+                    stringResource(R.string.egypt_restored_body),
+                    Modifier.width(520.dp),
+                    color = JoltPalette.textSecondary,
+                    textAlign = TextAlign.Center,
+                )
+                GameButton(stringResource(R.string.return_archive), { visible = false }, true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsScreen(
+    vm: GameViewModel,
+    back: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        EnvironmentVisual(EnvironmentScene.ARCHIVE)
+        TopBack(stringResource(R.string.settings), back)
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(440.dp)
+                .background(JoltPalette.surface.copy(alpha = .92f), RoundedCornerShape(26.dp))
+                .border(1.dp, JoltPalette.goldAccent.copy(alpha = .5f), RoundedCornerShape(26.dp))
+                .padding(24.dp),
+        ) {
+            Text("JOLT TIME", color = JoltPalette.goldAccent, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            BuildRow(stringResource(R.string.app_version), BuildConfig.VERSION_NAME)
+            BuildRow(stringResource(R.string.build_number), BuildConfig.VERSION_CODE.toString())
+            BuildRow(stringResource(R.string.git_commit), BuildConfig.GIT_COMMIT)
+            BuildRow(stringResource(R.string.build_type), BuildConfig.BUILD_TYPE.uppercase())
+            TextButton(onClick = vm::reset, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.reset_progress), color = JoltPalette.danger)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuildRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Text(label, color = JoltPalette.textSecondary)
+        Spacer(Modifier.weight(1f))
+        Text(value, color = JoltPalette.textPrimary, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun TopBack(title: String, back: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(44.dp).background(JoltPalette.surface.copy(alpha = .85f), CircleShape).clickable(onClick = back),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("‹", color = JoltPalette.textPrimary, fontSize = 34.sp)
+        }
+        Text(
+            title.uppercase(),
+            Modifier.padding(start = 12.dp),
+            color = JoltPalette.textPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 2.sp,
+        )
+    }
+}
+
+@Composable
+private fun GameButton(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+) {
+    val brush = if (enabled) {
+        Brush.horizontalGradient(listOf(JoltPalette.goldAccent, Color(0xFFF29D42)))
+    } else {
+        Brush.horizontalGradient(listOf(Color.DarkGray, Color.Gray))
+    }
+    Box(
+        modifier = Modifier
+            .padding(top = 13.dp)
+            .heightIn(min = 48.dp)
+            .background(brush, CircleShape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 25.dp, vertical = 13.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label.uppercase(), color = Color(0xFF21170B), fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun keyText(key: String): String {
+    val context = LocalContext.current
+    val id = context.resources.getIdentifier(key, "string", context.packageName)
+    return if (id == 0) key else stringResource(id)
+}
+
+private fun Hero.abilities() = listOf(basic, skill, ultimate)
+
+private fun speakerHero(key: String) = when (key) {
+    "speaker_orian" -> "orian"
+    "speaker_nefer" -> "nefer"
+    "speaker_nadiya" -> "nadiya"
+    else -> null
+}
+
+private fun sceneForMission(index: Int) = when (index) {
+    0 -> EnvironmentScene.ARCHIVE
+    1 -> EnvironmentScene.NILE
+    2 -> EnvironmentScene.MEMPHIS
+    3 -> EnvironmentScene.DESERT
+    4 -> EnvironmentScene.NECROPOLIS
+    5 -> EnvironmentScene.TEMPLE
+    else -> EnvironmentScene.PYRAMID
+}
