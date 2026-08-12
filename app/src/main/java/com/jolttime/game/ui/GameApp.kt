@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.LocaleManager
 import android.os.Build
 import android.os.LocaleList
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -39,11 +40,12 @@ fun GameApp(vm: GameViewModel) {
         val ui by vm.ui.collectAsStateWithLifecycle()
         var screen by remember { mutableStateOf(Screen.ARCHIVE) }
         val context = LocalContext.current
+        val activity = LocalActivity.current
         LaunchedEffect(ui.loaded, ui.game.languageTag) {
             if (ui.loaded && ui.game.languageTag.isNotBlank() &&
                 context.resources.configuration.locales[0].language != ui.game.languageTag
             ) {
-                applyAppLanguage(context as? Activity, ui.game.languageTag)
+                applyAppLanguage(activity, ui.game.languageTag)
             }
         }
         Box(Modifier.fillMaxSize().background(JoltPalette.background).windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -544,7 +546,7 @@ private fun SettingsScreen(
                 modifier = Modifier.padding(top = 10.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val activity = LocalContext.current as? Activity
+                val activity = LocalActivity.current
                 GameButton(stringResource(R.string.ukrainian), {
                     vm.language("uk")
                     applyAppLanguage(activity, "uk")

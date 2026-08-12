@@ -10,3 +10,4 @@ keystore.properties
 *.p12
 *.iml
 captures/
+dist/

@@ -59,9 +59,9 @@ This report separates source-level readiness from commands that were physically 
 
 - `.github/workflows/android-build.yml` triggers on push, pull request, and manual dispatch.
 - It provisions JDK 17, SDK Platform 35, Build-Tools 35.0.0, and Gradle 8.9; runs clean, unit tests, lint, and `assembleDebug`; and has no error suppression.
-- A successful run uploads the exact APK as `Jolt-Time-debug-apk`. No remote run was available from this repository environment, so the workflow result is not claimed as verified.
+- A successful run extracts version metadata from the built APK and uploads a uniquely named artifact such as `Jolt-Time-v0.4.5-dev-b1786535901-f2943ad`. No remote run was available from this repository environment, so the workflow result is not claimed as verified.
 
 ## APK — FAIL / NOT VERIFIED LOCALLY
 
 - The earlier `./gradlew assembleDebug` attempt could not download Gradle 8.9 because the Codex proxy returned HTTP 403. No APK was generated or committed; the text-only CI path uses the installed Gradle 8.9 executable instead.
-- On a normal network or successful CI run, the expected file is `app/build/outputs/apk/debug/app-debug.apk` and the downloadable workflow artifact is `Jolt-Time-debug-apk`.
+- On a normal network, the local Gradle output remains `app/build/outputs/apk/debug/app-debug.apk`; CI copies the validated APK into `dist/Jolt-Time-v<VERSION_NAME>-b<VERSION_CODE>-<SHORT_GIT_SHA>.apk` and uploads it under the matching versioned artifact name.

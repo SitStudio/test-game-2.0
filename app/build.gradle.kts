@@ -15,6 +15,11 @@ val gitCommit = providers.exec {
 val signingProperties = Properties().apply {
     rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
 }
+val joltBuildNumber = providers.environmentVariable("JOLT_BUILD_NUMBER")
+    .orNull
+    ?.toIntOrNull()
+    ?.takeIf { it in 1..2_100_000_000 }
+    ?: 40
 
 android {
     namespace = "com.jolttime.game"
@@ -24,8 +29,8 @@ android {
         applicationId = "com.jolttime.game"
         minSdk = 26
         targetSdk = 35
-        versionCode = 40
-        versionName = "0.4.0-dev"
+        versionCode = joltBuildNumber
+        versionName = "0.4.5-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {

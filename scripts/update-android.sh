@@ -3,6 +3,9 @@ set -eu
 
 PACKAGE="com.jolttime.game"
 ACTIVITY="$PACKAGE/.MainActivity"
+JOLT_BUILD_NUMBER=$(date +%s)
+export JOLT_BUILD_NUMBER
+GIT_COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || printf 'unknown')
 CLEAN=0
 [ "${1:-}" = "--clean" ] && CLEAN=1
 [ $# -le 1 ] || { echo "Usage: $0 [--clean]" >&2; exit 2; }
@@ -35,6 +38,15 @@ echo "Building Jolt Time development APK..."
 APK="app/build/outputs/apk/debug/app-debug.apk"
 [ -s "$APK" ] || { echo "ERROR: Build completed but $APK is missing." >&2; exit 1; }
 
+SDK_ROOT=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}
+[ -n "$SDK_ROOT" ] || { echo "ERROR: ANDROID_SDK_ROOT or ANDROID_HOME is required to read APK version metadata." >&2; exit 1; }
+AAPT=$(find "$SDK_ROOT/build-tools" -type f -name aapt 2>/dev/null | sort | tail -n 1)
+[ -n "$AAPT" ] || { echo "ERROR: aapt was not found under $SDK_ROOT/build-tools. Install Android SDK Build Tools." >&2; exit 1; }
+BADGING=$($AAPT dump badging "$APK")
+VERSION_CODE=$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" | head -n 1)
+VERSION_NAME=$(printf '%s\n' "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
+[ -n "$VERSION_CODE" ] && [ -n "$VERSION_NAME" ] || { echo "ERROR: Could not read version metadata from $APK." >&2; exit 1; }
+
 echo "Installing in place on $SERIAL (app data is preserved)..."
 set +e
 OUTPUT=$(adb -s "$SERIAL" install -r "$APK" 2>&1)
@@ -52,4 +64,5 @@ fi
 
 echo "Launching Jolt Time..."
 adb -s "$SERIAL" shell am start -n "$ACTIVITY" >/dev/null || { echo "ERROR: Install succeeded but app launch failed. Run: adb shell am start -n $ACTIVITY" >&2; exit 1; }
-echo "Done: Jolt Time updated and launched without clearing app data."
+printf '\nJolt Time updated\n\nVersion: %s\nBuild: %s\nCommit: %s\nDevice: %s\n' \
+  "$VERSION_NAME" "$VERSION_CODE" "$GIT_COMMIT" "$SERIAL"
