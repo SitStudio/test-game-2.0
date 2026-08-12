@@ -34,6 +34,26 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Configure persistent development signing
+        env:
+          JOLT_DEV_KEYSTORE_BASE64: ${{ secrets.JOLT_DEV_KEYSTORE_BASE64 }}
+          JOLT_DEV_STORE_PASSWORD: ${{ secrets.JOLT_DEV_STORE_PASSWORD }}
+          JOLT_DEV_KEY_ALIAS: ${{ secrets.JOLT_DEV_KEY_ALIAS }}
+          JOLT_DEV_KEY_PASSWORD: ${{ secrets.JOLT_DEV_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [[ -n "$JOLT_DEV_KEYSTORE_BASE64" ]]; then
+            printf '%s' "$JOLT_DEV_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/jolt-time-development.jks"
+            cat > keystore.properties <<EOF
+          storeFile=$RUNNER_TEMP/jolt-time-development.jks
+          storePassword=$JOLT_DEV_STORE_PASSWORD
+          keyAlias=$JOLT_DEV_KEY_ALIAS
+          keyPassword=$JOLT_DEV_KEY_PASSWORD
+          EOF
+          else
+            echo "Persistent signing secrets are absent; using the runner debug key."
+          fi
+
       - name: Clean
         run: gradle clean
 

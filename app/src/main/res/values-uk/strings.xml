@@ -25,4 +25,5 @@
 <string name="mission_guardian">Вартова безіменної гробниці</string><string name="mission_pyramid_gate">Зруйнувати браму піраміди</string><string name="location_necropolis">Некрополь</string><string name="location_pyramid_gate">Брама піраміди</string>
 <string name="artifact_ankh_effect">Більше здоров’я; ульта створює короткий щит.</string><string name="artifact_palette_effect">Збільшує атаку.</string><string name="artifact_scarab_effect">Збільшує захист.</string><string name="artifact_cartouche_effect">Збільшує швидкість руху.</string><string name="artifact_eye_effect">Збільшує шанс критичного удару.</string>
 <string name="speaker_orian">ОРІАН</string><string name="speaker_nefer">НЕФЕР</string>
+<string name="campaign">Кампанія</string><string name="settings">Налаштування</string><string name="continue_label">Продовжити</string><string name="app_version">Версія</string><string name="build_number">Номер збірки</string><string name="git_commit">Git commit</string><string name="build_type">Тип збірки</string><string name="reset_progress">Скинути прогрес</string>
 </resources>

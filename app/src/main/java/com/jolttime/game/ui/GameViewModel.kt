@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-data class UiState(val game: GameState=GameState(), val loaded:Boolean=false)
+data class UiState(val game: GameState=GameState(), val loaded:Boolean=false, val battleResult:Boolean?=null)
 
 class GameViewModel(application: Application): AndroidViewModel(application) {
     private val repo=(application as JoltTimeApplication).repository
@@ -25,7 +25,8 @@ class GameViewModel(application: Application): AndroidViewModel(application) {
     fun introSeen()=mutate(RpgEngine::markIntroSeen)
     fun selectTeam(ids:List<String>)=mutate { RpgEngine.selectTeam(it,ids) }
     fun startMission(id:String)=mutate { RpgEngine.startMission(it,id) }
-    fun finishMission(victory:Boolean)=mutate { RpgEngine.finishMission(it,victory) }
+    fun battleEnded(victory:Boolean){ _ui.value=_ui.value.copy(battleResult=victory) }
+    fun continueBattleResult(){ val result=_ui.value.battleResult?:return;_ui.value=_ui.value.copy(battleResult=null);mutate { RpgEngine.finishMission(it,result) } }
     fun dismissArtifact()=mutate(RpgEngine::dismissArtifact)
     fun dismissStory()=mutate(RpgEngine::dismissStory)
     fun upgradeHero(id:String)=mutate { RpgEngine.upgradeHero(it,id) }

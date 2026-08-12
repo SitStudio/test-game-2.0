@@ -23,6 +23,8 @@ The initial text-only repository transport omits the binary wrapper JAR. Regener
 
 The APK is produced at `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions installs Gradle 8.9, runs the same checks, validates the package, and uploads **Jolt-Time-debug-apk**.
 
+For one-command Mac → phone updates, persistent development signing, USB/Wireless ADB setup, and save-preserving installs, see [Local Android development](docs/LOCAL_ANDROID_DEVELOPMENT.md). The normal loop is `./scripts/update-android.sh`; it builds, updates in place, and launches the game.
+
 ## Architecture
 
 - `domain/model/GameModels.kt` — persisted campaign, hero, mission, ability, and artifact models.
