@@ -26,4 +26,6 @@
 <string name="artifact_ankh_effect">More maximum health; ultimate grants a brief shield.</string><string name="artifact_palette_effect">Increases attack.</string><string name="artifact_scarab_effect">Increases defense.</string><string name="artifact_cartouche_effect">Increases movement speed.</string><string name="artifact_eye_effect">Increases critical chance.</string>
 <string name="speaker_orian">ORIAN</string><string name="speaker_nefer">NEFER</string>
 <string name="campaign">Campaign</string><string name="settings">Settings</string><string name="continue_label">Continue</string><string name="app_version">App version</string><string name="build_number">Build number</string><string name="git_commit">Git commit</string><string name="build_type">Build type</string><string name="reset_progress">Reset progress</string>
+<string name="language">Language</string><string name="ukrainian">Українська</string><string name="english">English</string>
+<string name="boss_phase">Phase</string>
 </resources>

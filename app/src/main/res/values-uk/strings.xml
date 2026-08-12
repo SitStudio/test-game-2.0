@@ -26,4 +26,6 @@
 <string name="artifact_ankh_effect">Більше здоров’я; ульта створює короткий щит.</string><string name="artifact_palette_effect">Збільшує атаку.</string><string name="artifact_scarab_effect">Збільшує захист.</string><string name="artifact_cartouche_effect">Збільшує швидкість руху.</string><string name="artifact_eye_effect">Збільшує шанс критичного удару.</string>
 <string name="speaker_orian">ОРІАН</string><string name="speaker_nefer">НЕФЕР</string>
 <string name="campaign">Кампанія</string><string name="settings">Налаштування</string><string name="continue_label">Продовжити</string><string name="app_version">Версія</string><string name="build_number">Номер збірки</string><string name="git_commit">Git commit</string><string name="build_type">Тип збірки</string><string name="reset_progress">Скинути прогрес</string>
+<string name="language">Мова</string><string name="ukrainian">Українська</string><string name="english">English</string>
+<string name="boss_phase">Фаза</string>
 </resources>

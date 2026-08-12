@@ -31,6 +31,7 @@ class GameViewModel(application: Application): AndroidViewModel(application) {
     fun dismissStory()=mutate(RpgEngine::dismissStory)
     fun upgradeHero(id:String)=mutate { RpgEngine.upgradeHero(it,id) }
     fun equip(heroId:String,artifactId:String)=mutate { RpgEngine.equipArtifact(it,heroId,artifactId) }
+    fun language(tag: String) = mutate { it.copy(languageTag = tag) }
     fun reset(){ viewModelScope.launch { repo.reset(); val state=GameState(); _ui.value=UiState(state,true); repo.save(state) } }
     private fun mutate(block:(GameState)->GameState){ val next=block(_ui.value.game).sanitized();_ui.value=_ui.value.copy(game=next);saves.trySend(next) }
 }

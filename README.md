@@ -37,3 +37,7 @@ For one-command Mac → phone updates, persistent development signing, USB/Wirel
 - `res/values` and `res/values-uk` — complete English and Ukrainian resources with stable internal IDs.
 
 Adding a future epoch means supplying another content catalog of missions, enemy templates, dialogue, and artifacts without changing the battle engine. Only Ancient Egypt is intentionally playable in this release.
+
+## Visual assets
+
+The Ancient Egypt presentation uses replaceable Android drawable assets through a typed catalog; battle drawables are rasterized once and cached. See [the art pipeline](docs/ART_PIPELINE.md) for resource contracts and production-art replacement guidance.

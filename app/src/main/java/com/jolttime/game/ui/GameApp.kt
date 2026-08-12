@@ -1,5 +1,9 @@
 package com.jolttime.game.ui
 
+import android.app.Activity
+import android.app.LocaleManager
+import android.os.Build
+import android.os.LocaleList
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -34,6 +38,14 @@ fun GameApp(vm: GameViewModel) {
     JoltTheme {
         val ui by vm.ui.collectAsStateWithLifecycle()
         var screen by remember { mutableStateOf(Screen.ARCHIVE) }
+        val context = LocalContext.current
+        LaunchedEffect(ui.loaded, ui.game.languageTag) {
+            if (ui.loaded && ui.game.languageTag.isNotBlank() &&
+                context.resources.configuration.locales[0].language != ui.game.languageTag
+            ) {
+                applyAppLanguage(context as? Activity, ui.game.languageTag)
+            }
+        }
         Box(Modifier.fillMaxSize().background(JoltPalette.background).windowInsetsPadding(WindowInsets.safeDrawing)) {
             when {
                 !ui.loaded -> CircularProgressIndicator(Modifier.align(Alignment.Center), color=JoltPalette.goldAccent)
@@ -83,13 +95,82 @@ private fun ArchiveHub(g:GameState,campaign:()->Unit,heroes:()->Unit,museum:()->
 }
 
 private enum class HubSymbol { CAMPAIGN,HEROES,MUSEUM }
-@Composable private fun HubPortal(label:String,symbol:HubSymbol,onClick:()->Unit,modifier:Modifier){val palette=JoltPalette;Column(modifier.clickable(onClick=onClick),horizontalAlignment=Alignment.CenterHorizontally){Canvas(Modifier.size(82.dp).shadow(16.dp,CircleShape).background(JoltPalette.surfaceElevated.copy(.92f),CircleShape).border(2.dp,JoltPalette.goldAccent.copy(.75f),CircleShape).padding(18.dp)){val c=center;when(symbol){HubSymbol.CAMPAIGN->{drawPath(Path().apply{moveTo(c.x,c.y-size.height*.35f);lineTo(c.x+size.width*.34f,c.y+size.height*.28f);lineTo(c.x-size.width*.34f,c.y+size.height*.28f);close()},palette.goldAccent);drawCircle(palette.temporalBlue,6f,c)};HubSymbol.HEROES->{drawCircle(palette.goldAccent,size.width*.18f,c+Offset(0f,-size.height*.18f));drawArc(palette.temporalBlue,200f,140f,false,style=Stroke(10f),topLeft=Offset(size.width*.12f,size.height*.38f),size=androidx.compose.ui.geometry.Size(size.width*.76f,size.height*.48f))};HubSymbol.MUSEUM->{repeat(3){i->drawRect(if(i==1)palette.goldAccent else palette.temporalBlue,Offset(size.width*(.15f+i*.27f),size.height*.28f),androidx.compose.ui.geometry.Size(size.width*.14f,size.height*.52f))};drawRect(palette.goldAccent,Offset(size.width*.07f,size.height*.18f),androidx.compose.ui.geometry.Size(size.width*.86f,size.height*.1f))}}};Text(label.uppercase(),color=JoltPalette.textPrimary,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(top=7.dp))}}
+@Composable
+private fun HubPortal(
+    label: String,
+    symbol: HubSymbol,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val nodeType = when (symbol) {
+        HubSymbol.CAMPAIGN -> MissionNodeType.BATTLE
+        HubSymbol.HEROES -> MissionNodeType.STORY
+        HubSymbol.MUSEUM -> MissionNodeType.ARTIFACT
+    }
+    Column(
+        modifier = modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        MissionNodeVisual(
+            type = nodeType,
+            modifier = Modifier
+                .size(86.dp)
+                .shadow(16.dp, CircleShape),
+        )
+        Text(
+            text = label.uppercase(),
+            color = JoltPalette.textPrimary,
+            fontWeight = FontWeight.Black,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 7.dp),
+        )
+    }
+}
 
 @Composable private fun CompactHud(g:GameState,settings:()->Unit,modifier:Modifier=Modifier){Row(modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){HudPill("LV ${g.accountLevel}",JoltPalette.goldAccent);Spacer(Modifier.weight(1f));HudPill("◈ ${g.timeEnergy}",JoltPalette.temporalBlue);HudPill("◆ ${g.upgradeMaterials}",JoltPalette.goldAccent);Box(Modifier.size(42.dp).background(JoltPalette.surface.copy(.85f),CircleShape).clickable(onClick=settings),contentAlignment=Alignment.Center){Text("⚙",fontSize=20.sp,color=JoltPalette.textPrimary)}}}
 @Composable private fun HudPill(text:String,color:Color){Text(text,color=JoltPalette.textPrimary,fontWeight=FontWeight.Bold,modifier=Modifier.background(JoltPalette.surface.copy(.88f),CircleShape).border(1.dp,color.copy(.55f),CircleShape).padding(horizontal=13.dp,vertical=8.dp))}
 
-@Composable private fun EgyptMap(g:GameState,vm:GameViewModel,back:()->Unit){val palette=JoltPalette;var selected by remember{mutableStateOf<Mission?>(null)};var story by remember{mutableStateOf<StoryScene?>(null)};Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.NILE);TopBack(stringResource(R.string.epoch_egypt),back);Canvas(Modifier.fillMaxSize().padding(horizontal=80.dp,vertical=70.dp)){val points=GameContent.missions.indices.map{i->Offset(size.width*(.05f+i*.9f/(GameContent.missions.size-1)),size.height*(if(i%2==0).58f else .35f))};points.zipWithNext().forEach{(a,b)->drawLine(Color(0xFF704E2D),a,b,14f,StrokeCap.Round);drawLine(palette.goldAccent.copy(.7f),a,b,3f,StrokeCap.Round)}};Row(Modifier.fillMaxWidth().align(Alignment.Center).horizontalScroll(rememberScrollState()).padding(horizontal=62.dp),horizontalArrangement=Arrangement.spacedBy(38.dp)){GameContent.missions.forEachIndexed{i,m->val unlocked=i<=g.unlockedMissionIndex;val done=m.id in g.completedMissionIds;MissionNode(m,unlocked,done,i==g.unlockedMissionIndex){if(unlocked){if(m.storyBefore!=null&&!done)story=GameContent.stories[m.storyBefore] else selected=m}}}};selected?.let{TeamPanel(g,it,{selected=null}){vm.startMission(it.id);selected=null}};story?.let{s->StorySceneOverlay(s,sceneForMission(g.unlockedMissionIndex)){story=null;selected=GameContent.missions[g.unlockedMissionIndex]}}}}
-@Composable private fun MissionNode(m:Mission,unlocked:Boolean,done:Boolean,current:Boolean,onClick:()->Unit){val palette=JoltPalette;val pulse=rememberInfiniteTransition(label=m.id).animateFloat(.72f,1f,infiniteRepeatable(tween(900),RepeatMode.Reverse),label="node").value;Column(Modifier.width(92.dp).clickable(enabled=unlocked,onClick=onClick),horizontalAlignment=Alignment.CenterHorizontally){Canvas(Modifier.size(if(m.nodeType==MissionNodeType.BOSS)78.dp else 64.dp).scale(if(current)pulse else 1f)){drawCircle(if(done)palette.success else if(unlocked)palette.goldAccent else Color(0xFF5C5145));drawCircle(Color(0xFF322319),size.minDimension*.38f);when(m.nodeType){MissionNodeType.BOSS->drawPath(Path().apply{moveTo(center.x,8f);lineTo(size.width-8f,size.height-10f);lineTo(8f,size.height-10f);close()},palette.danger);MissionNodeType.ELITE->drawCircle(palette.danger,size.minDimension*.19f,center);MissionNodeType.ARTIFACT->drawPath(Path().apply{moveTo(center.x,8f);lineTo(size.width-10f,center.y);lineTo(center.x,size.height-8f);lineTo(10f,center.y);close()},palette.temporalBlue);else->drawCircle(palette.temporalBlue,size.minDimension*.16f,center)};if(done){drawLine(Color.White,Offset(size.width*.29f,size.height*.53f),Offset(size.width*.44f,size.height*.68f),6f);drawLine(Color.White,Offset(size.width*.44f,size.height*.68f),Offset(size.width*.73f,size.height*.34f),6f)}};Text(keyText(m.locationKey),color=if(unlocked)JoltPalette.textPrimary else JoltPalette.textMuted,fontSize=11.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center,maxLines=2)}}
+@Composable private fun EgyptMap(g:GameState,vm:GameViewModel,back:()->Unit){val palette=JoltPalette;var selected by remember{mutableStateOf<Mission?>(null)};var story by remember{mutableStateOf<StoryScene?>(null)};Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.DESERT);TopBack(stringResource(R.string.epoch_egypt),back);Canvas(Modifier.fillMaxSize().padding(horizontal=80.dp,vertical=70.dp)){val points=GameContent.missions.indices.map{i->Offset(size.width*(.05f+i*.9f/(GameContent.missions.size-1)),size.height*(if(i%2==0).58f else .35f))};points.zipWithNext().forEach{(a,b)->drawLine(Color(0xFF704E2D),a,b,14f,StrokeCap.Round);drawLine(palette.goldAccent.copy(.7f),a,b,3f,StrokeCap.Round)}};Row(Modifier.fillMaxWidth().align(Alignment.Center).horizontalScroll(rememberScrollState()).padding(horizontal=62.dp),horizontalArrangement=Arrangement.spacedBy(38.dp)){GameContent.missions.forEachIndexed{i,m->val unlocked=i<=g.unlockedMissionIndex;val done=m.id in g.completedMissionIds;MissionNode(m,unlocked,done,i==g.unlockedMissionIndex){if(unlocked){if(m.storyBefore!=null&&!done)story=GameContent.stories[m.storyBefore] else selected=m}}}};selected?.let{TeamPanel(g,it,{selected=null}){vm.startMission(it.id);selected=null}};story?.let{s->StorySceneOverlay(s,sceneForMission(g.unlockedMissionIndex)){story=null;selected=GameContent.missions[g.unlockedMissionIndex]}}}}
+@Composable
+private fun MissionNode(
+    m: Mission,
+    unlocked: Boolean,
+    done: Boolean,
+    current: Boolean,
+    onClick: () -> Unit,
+) {
+    val pulse = rememberInfiniteTransition(label = m.id).animateFloat(
+        initialValue = .92f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "node",
+    ).value
+    Column(
+        modifier = Modifier.width(104.dp).clickable(enabled = unlocked, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (m.nodeType == MissionNodeType.BOSS) 88.dp else 74.dp)
+                .scale(if (current) pulse else 1f)
+                .alpha(if (unlocked) 1f else .42f),
+            contentAlignment = Alignment.Center,
+        ) {
+            MissionNodeVisual(m.nodeType, Modifier.fillMaxSize())
+            if (done) {
+                Text("✓", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Text(
+            text = keyText(m.locationKey),
+            color = if (unlocked) JoltPalette.textPrimary else JoltPalette.textMuted,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+        )
+    }
+}
 
 @Composable private fun HeroesRoom(g:GameState,vm:GameViewModel,back:()->Unit){var selectedId by remember{mutableStateOf(g.selectedTeam.first())};val hero=g.heroes.first{it.id==selectedId};Box(Modifier.fillMaxSize()){EnvironmentVisual(EnvironmentScene.ARCHIVE);TopBack(stringResource(R.string.heroes),back);Column(Modifier.align(Alignment.CenterStart).padding(start=32.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){g.heroes.forEach{h->Box(Modifier.size(66.dp).clip(CircleShape).background(if(h.id==selectedId)JoltPalette.goldAccent else JoltPalette.surfaceElevated).border(2.dp,if(h.id in g.selectedTeam)JoltPalette.temporalBlue else Color.Transparent,CircleShape).clickable{selectedId=h.id}){HeroVisual(h.id,Modifier.fillMaxSize().padding(5.dp))}}};HeroVisual(hero.id,Modifier.align(Alignment.Center).size(290.dp));Column(Modifier.align(Alignment.CenterEnd).width(270.dp).padding(end=24.dp).background(JoltPalette.surface.copy(.9f),RoundedCornerShape(24.dp)).padding(18.dp)){Text(keyText(hero.nameKey),fontSize=27.sp,fontWeight=FontWeight.Black,color=JoltPalette.textPrimary);Text(keyText("role_${hero.role.name.lowercase()}"),color=JoltPalette.goldAccent,fontWeight=FontWeight.Bold);Text("LV ${hero.level}  •  PWR ${hero.attack+hero.defense+hero.maxHp/10}",color=JoltPalette.textSecondary,modifier=Modifier.padding(vertical=8.dp));StatBar("HP",hero.maxHp,350,JoltPalette.success);StatBar("ATK",hero.attack,80,JoltPalette.danger);Row(Modifier.padding(top=13.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){hero.abilities().forEach{AbilityOrb(keyText(it.nameKey))}};GameButton(stringResource(R.string.upgrade_cost,hero.level*25),{vm.upgradeHero(hero.id)},g.upgradeMaterials>=hero.level*25);val selected=hero.id in g.selectedTeam;GameButton(if(selected)stringResource(R.string.in_team) else stringResource(R.string.selected_for_battle),{if(!selected)vm.selectTeam((g.selectedTeam+hero.id).takeLast(3))},!selected)}}}
 @Composable private fun AbilityOrb(name:String){Box(Modifier.size(54.dp).background(JoltPalette.surfaceElevated,CircleShape).border(1.dp,JoltPalette.temporalBlue,CircleShape),contentAlignment=Alignment.Center){Text(name.take(2).uppercase(),color=JoltPalette.textPrimary,fontWeight=FontWeight.Black)}}
@@ -130,24 +211,19 @@ private fun MuseumRoom(
                     modifier = Modifier.width(130.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(modifier = Modifier.size(118.dp)) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawOval(
-                                color = Color(0xFF6C4D34),
-                                topLeft = Offset(8f, size.height * .73f),
-                                size = androidx.compose.ui.geometry.Size(
-                                    width = size.width - 16f,
-                                    height = size.height * .24f,
-                                ),
-                            )
-                            artifactAsset(artifact.id).run {
-                                draw(
-                                    center = center + Offset(0f, -8f),
-                                    scale = .65f,
-                                    discovered = artifact.isCompleted,
-                                )
-                            }
-                        }
+                    Box(
+                        modifier = Modifier
+                            .size(126.dp)
+                            .background(JoltPalette.surface.copy(alpha = .72f), RoundedCornerShape(18.dp))
+                            .border(2.dp, JoltPalette.goldAccent.copy(alpha = .45f), RoundedCornerShape(18.dp))
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ArtifactVisual(
+                            id = artifact.id,
+                            discovered = artifact.isCompleted,
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     }
                     Text(
                         text = if (artifact.isCompleted) keyText(artifact.nameKey) else "???",
@@ -209,6 +285,7 @@ private fun StorySceneOverlay(
                         .width(380.dp)
                         .padding(start = 30.dp),
                     facingRight = true,
+                    portrait = true,
                 )
             }
         }
@@ -318,6 +395,8 @@ private fun ActionBattleScreen(
         objective = keyText(mission.titleKey),
         victory = stringResource(R.string.victory),
         defeat = stringResource(R.string.defeat),
+        bossName = stringResource(R.string.enemy_apophis_echo),
+        bossPhase = stringResource(R.string.boss_phase),
     )
     AndroidView(
         factory = { context ->
@@ -396,14 +475,14 @@ private fun ArtifactReveal(
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Canvas(modifier = Modifier.size(190.dp)) {
-                repeat(3) { index ->
-                    drawCircle(
-                        palette.goldAccent.copy(alpha = .15f - index * .03f),
-                        size.minDimension * (.42f - index * .1f),
-                    )
-                }
-                artifactAsset(a.id).run { draw(center, .9f, true) }
+            Box(
+                modifier = Modifier
+                    .size(210.dp)
+                    .background(palette.surface.copy(alpha = .8f), RoundedCornerShape(28.dp))
+                    .border(2.dp, palette.goldAccent, RoundedCornerShape(28.dp))
+                    .padding(18.dp),
+            ) {
+                ArtifactVisual(a.id, discovered = true, modifier = Modifier.fillMaxSize())
             }
             Text(a.rarity.name, color = JoltPalette.goldAccent, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
             Text(keyText(a.nameKey), color = JoltPalette.textPrimary, fontSize = 30.sp, fontWeight = FontWeight.Black)
@@ -459,6 +538,22 @@ private fun SettingsScreen(
                 .padding(24.dp),
         ) {
             Text("JOLT TIME", color = JoltPalette.goldAccent, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Text(
+                text = stringResource(R.string.language),
+                color = JoltPalette.textSecondary,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val activity = LocalContext.current as? Activity
+                GameButton(stringResource(R.string.ukrainian), {
+                    vm.language("uk")
+                    applyAppLanguage(activity, "uk")
+                }, true)
+                GameButton(stringResource(R.string.english), {
+                    vm.language("en")
+                    applyAppLanguage(activity, "en")
+                }, true)
+            }
             BuildRow(stringResource(R.string.app_version), BuildConfig.VERSION_NAME)
             BuildRow(stringResource(R.string.build_number), BuildConfig.VERSION_CODE.toString())
             BuildRow(stringResource(R.string.git_commit), BuildConfig.GIT_COMMIT)
@@ -547,4 +642,20 @@ private fun sceneForMission(index: Int) = when (index) {
     4 -> EnvironmentScene.NECROPOLIS
     5 -> EnvironmentScene.TEMPLE
     else -> EnvironmentScene.PYRAMID
+}
+
+@Suppress("DEPRECATION")
+private fun applyAppLanguage(activity: Activity?, tag: String) {
+    activity ?: return
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        activity.getSystemService(LocaleManager::class.java).applicationLocales =
+            LocaleList.forLanguageTags(tag)
+    } else {
+        val locale = java.util.Locale.forLanguageTag(tag)
+        java.util.Locale.setDefault(locale)
+        val configuration = activity.resources.configuration
+        configuration.setLocale(locale)
+        activity.resources.updateConfiguration(configuration, activity.resources.displayMetrics)
+        activity.recreate()
+    }
 }
